@@ -46,7 +46,7 @@ if config['enable'].get('prepare_links_p_nom', False):
 
 
 datafiles = ['ch_cantons.csv', 'je-e-21.03.02.xls', 
-            'eez/World_EEZ_v8_2014.shp', 'EIA_hydro_generation_2000_2014.csv', 
+            'eez/World_EEZ_v8_2014.shp', 'EIA_hydro_generation_2000_2016_iha_2017_2018.csv', 
             'hydro_capacities.csv', 'naturalearth/ne_10m_admin_0_countries.shp', 
             'NUTS_2013_60M_SH/data/NUTS_RG_60M_2013.shp', 'nama_10r_3popgdp.tsv.gz', 
             'nama_10r_3gdp.tsv.gz', 'time_series_60min_singleindex_filtered.csv', 

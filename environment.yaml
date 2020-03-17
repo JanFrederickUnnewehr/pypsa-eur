@@ -1,6 +1,6 @@
-name: pypsa-eur
+name: pypsa-eur-50
 channels:
-  - defaults
+  #- defaults
   - conda-forge
   - bioconda
   - http://conda.anaconda.org/gurobi

@@ -183,8 +183,7 @@ rule build_renewable_profiles:
 rule build_powerplant_profiles:
     input:
         path_entsoe_pp_timeseries="data/ActualGenerationOutputPerUnit",
-        jrc_units="data/JRC_OPEN_UNITS.csv",
-        powerplants="resources/powerplants.csv"
+        jrc_units="data/JRC_OPEN_UNITS.csv"
     output: profile="resources/profile_pp.csv"
     # group: 'feedin_preparation'
     script: "scripts/build_powerplant_profiles.py"

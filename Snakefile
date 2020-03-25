@@ -180,6 +180,15 @@ rule build_renewable_profiles:
     # group: 'feedin_preparation'
     script: "scripts/build_renewable_profiles.py"
 
+rule build_powerplant_profiles:
+    input:
+        path_entsoe_pp_timeseries="data/ActualGenerationOutputPerUnit",
+        jrc_units="data/JRC_OPEN_UNITS.csv",
+        powerplants="resources/powerplants.csv"
+    output: profile="resources/profile_pp.csv"
+    # group: 'feedin_preparation'
+    script: "scripts/build_powerplant_profiles.py"
+
 if 'hydro' in config['renewable'].keys():
     rule build_hydro_profile:
         input:
@@ -211,6 +220,27 @@ rule add_electricity:
     resources: mem=3000
     # group: 'build_pypsa_networks'
     script: "scripts/add_electricity.py"
+
+rule add_electricity_today:
+    input:
+        base_network='networks/base.nc',
+        tech_costs=COSTS,
+        regions="resources/regions_onshore.geojson",
+        powerplants='resources/powerplants.csv',
+        hydro_capacities='data/bundle/hydro_capacities.csv',
+        geth_hydro_capacities='data/geth2015_hydro_capacities.csv',
+        opsd_load='data/bundle/time_series_60min_singleindex_filtered.csv',
+        nuts3_shapes='resources/nuts3_shapes.geojson',
+        profile_pp='resources/profile_pp.csv',
+        re_capacity='data/NGC_edited.csv',
+        **{'profile_' + t: "resources/profile_" + t + ".nc"
+           for t in config['renewable']}
+    output: "networks/elec_today.nc"
+    benchmark: "benchmarks/add_electricity_today"
+    threads: 1
+    resources: mem=3000
+    # group: 'build_pypsa_networks'
+    script: "scripts/add_electricity_today.py"
 
 rule simplify_network:
     input:

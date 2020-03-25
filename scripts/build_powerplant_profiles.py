@@ -239,7 +239,7 @@ if __name__ == "__main__":
     pp_profiles = pd.DataFrame()
     logger.info("Creating pp profiles")
     with progressbar.ProgressBar(max_value=len(ppl.index)) as bar:     
-        for i in range(len(ppl.index):
+        for i in range(len(ppl.index)):
             bar.update(i)
             try:
                 pp_profiles[ppl.index[i]] = powerplant_generation(pp_id = ppl.index[i], generation_data = data_merged_agg_fresna, ppl=ppl)['Generation-Consumption_pu']      

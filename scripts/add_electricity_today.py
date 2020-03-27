@@ -199,15 +199,19 @@ def load_powerplants(ppl_fn=None):
             .rename(columns=str.lower).drop(columns=['efficiency'])
             .replace({'carrier': carrier_dict}))
 
-def timeseries_opsd(years=slice("2011", "2015"), fn=None):
+def load_timeseries_opsd(years=slice("2011", "2015"), fn=None, countries=None):
     """
-    Read load data from OPSD time-series package.
+    Read load data from OPSD time-series package version 2019-06-05.
 
     Parameters
     ----------
     years : None or slice()
         Years for which to read load data (defaults to
         slice("2011","2015"))
+        
+    fn : file name
+    
+    countries : 
 
     Returns
     -------
@@ -216,38 +220,251 @@ def timeseries_opsd(years=slice("2011", "2015"), fn=None):
     """
 
     if fn is None:
-        fn = toDataDir('time_series_60min_singleindex_filtered.csv')
+        fn = snakemake.input.opsd_load
+        
+    if countries is None:
+        countries = snakemake.config['countries']
 
     load = (pd.read_csv(fn, index_col=0, parse_dates=True)
             .loc[:, lambda df: df.columns.to_series().str.endswith('_load_actual_entsoe_transparency')]
             .rename(columns=lambda s: s[:-len('_load_actual_entsoe_transparency')])
             .dropna(how="all", axis=0))
+    
+    if 'GB_GBN' in load.columns:
+        load.rename(columns={'GB_GBN' : 'GB'}, inplace=True)
+    
+    load = load.filter(items=countries)
 
     if years is not None:
         load = load.loc[years]
 
-    # manual alterations:
-    # Kosovo gets the same load curve as Serbia
-    # scaled by energy consumption ratio from IEA Data browser for the year 2017
-    # https://www.iea.org/data-and-statistics?country=KOSOVO&fuel=Electricity%20and%20heat&indicator=Electricity%20final%20consumption
-    load['KV'] = load['RS'] * (5. / 33.)
-    # Albania gets the same load curve as Macedonia
-    # https://www.iea.org/data-and-statistics?country=ALBANIA&fuel=Electricity%20and%20heat&indicator=Electricity%20final%20consumption
-    load['AL'] = load['MK'] * (6.0 / 7.0)
+    if 2018 in load.index.year:
 
-    # # To fill the half week gap in Greece from start to stop,
-    # # we copy the week before into it
-    start = pd.Timestamp('2015-08-11 21:00')
-    stop = pd.Timestamp('2015-08-15 20:00')
-    # w = pd.Timedelta(weeks=1)
+        # To fill the gaps in BE 
+        # There are two missing hours in 2018
+        # we interpolate linearly
+        load['BE'] = load['BE'].interpolate()        
 
-    # if start in load.index and stop in load.index:
-    #     load.loc[start:stop, 'GR'] = load.loc[start-w:stop-w, 'GR'].values
-
-    # # There are three missing hours in 2014 and four in 2015
-    # # we interpolate linearly (copying from the previous week
-    # # might be better)
-    # load['EE'] = load['EE'].interpolate()
+        # # To fill the gap in BG from start to stop,
+        # # we copy the same period from one week before into it
+        start = pd.Timestamp('2018-10-27 21:00')
+        stop = pd.Timestamp('2018-10-28 22:00')
+        w = pd.Timedelta(weeks=1)
+    
+        load.loc[start:stop, 'BG'] = load.loc[start-w:stop-w, 'BG'].values
+    
+        # To fill the gaps in EE from start to stop,
+        # we copy the same period from one week before into it
+        start = pd.Timestamp('2018-04-09 12:00')
+        stop = pd.Timestamp('2018-04-10 05:00')
+        w = pd.Timedelta(weeks=1)
+    
+        load.loc[start:stop, 'EE'] = load.loc[start-w:stop-w, 'EE'].values
+            
+        start = pd.Timestamp('2018-01-19 06:00')
+        stop = pd.Timestamp('2018-01-19 11:00')
+        w = pd.Timedelta(weeks=1)
+    
+        load.loc[start:stop, 'EE'] = load.loc[start-w:stop-w, 'EE'].values
+            
+        # to fill a 3 hour gap in the night
+        load['EE'] = load['EE'].interpolate()
+        
+        
+        # To fill the gaps in FR from start to stop,
+        # we copy the same period from one week before into it
+        start = pd.Timestamp('2018-08-12 07:00')
+        stop = pd.Timestamp('2018-08-12 11:00')
+        w = pd.Timedelta(weeks=1)
+    
+        load.loc[start:stop, 'FR'] = load.loc[start-w:stop-w, 'FR'].values
+            
+        # to fill a two 3 hour gaps in the night
+        load['FR'] = load['FR'].interpolate()
+        
+        # To fill the first gaps in LT from start to stop,
+        # we copy the same period from the next sunnday into it
+        start = pd.Timestamp('2018-01-01 00:00')
+        stop = pd.Timestamp('2018-01-02 05:00')
+        w = pd.Timedelta(days=6)
+    
+        load.loc[start:stop, 'LT'] = load.loc[start+w:stop+w, 'LT'].values
+        
+        # To fill the gaps in LT from start to stop,
+        # we copy the same period from one week before into it
+        start = pd.Timestamp('2018-03-30 11:00')
+        stop = pd.Timestamp('2018-03-30 16:00')
+        w = pd.Timedelta(weeks=1)
+        
+        load.loc[start:stop, 'LT'] = load.loc[start+w:stop+w, 'LT'].values
+    
+        # To fill the gaps in LT from start to stop,
+        # we copy the same period from one week before into it
+        start = pd.Timestamp('2018-10-08 14:00')
+        stop = pd.Timestamp('2018-10-09 02:00')
+        w = pd.Timedelta(weeks=1)
+        
+        load.loc[start:stop, 'LT'] = load.loc[start+w:stop+w, 'LT'].values        
+           
+        # to fill a 4 hour gaps in the night
+        load['LT'] = load['LT'].interpolate()
+    
+        # To fill the gaps in SK from start to stop,
+        # we copy the same period from one week before into it
+        start = pd.Timestamp('2018-08-09 17:00')
+        stop = pd.Timestamp('2018-08-09 22:00')
+        w = pd.Timedelta(weeks=1)
+        
+        load.loc[start:stop, 'SK'] = load.loc[start+w:stop+w, 'SK'].values
+    
+        # To fill the gaps in RO from start to stop,
+        # we copy the same period from one week before into it
+        start = pd.Timestamp('2018-08-27 06:00')
+        stop = pd.Timestamp('2018-08-27 10:00')
+        w = pd.Timedelta(weeks=1)
+        
+        load.loc[start:stop, 'RO'] = load.loc[start+w:stop+w, 'RO'].values
+    
+    
+        # To fill the gaps in LU from start to stop,
+        # we copy the same period from one week before into it
+        start = pd.Timestamp('2018-11-30 01:00')
+        stop = pd.Timestamp('2018-12-01 10:00')
+        w = pd.Timedelta(weeks=1)
+        
+        load.loc[start:stop, 'LU'] = load.loc[start+w:stop+w, 'LU'].values
+        
+        # To fill the gaps in LU from start to stop,
+        # we copy the same period from one week before into it
+        start = pd.Timestamp('2018-12-10 08:00')
+        stop = pd.Timestamp('2018-12-10 23:00')
+        w = pd.Timedelta(weeks=1)
+        
+        load.loc[start:stop, 'LU'] = load.loc[start+w:stop+w, 'LU'].values
+        
+        load['LU'] = load['LU'].interpolate()
+    
+        # To fill the gaps in MK from start to stop,
+        # we copy the same period from one week before into it
+        start = pd.Timestamp('2018-01-15 00:00')
+        stop = pd.Timestamp('2018-01-15 22:00')
+        w = pd.Timedelta(weeks=1)
+        
+        load.loc[start:stop, 'MK'] = load.loc[start+w:stop+w, 'MK'].values
+    
+        # To fill the gaps in MK from start to stop,
+        # we copy the same period from one week before into it
+        start = pd.Timestamp('2018-01-18 00:00')
+        stop = pd.Timestamp('2018-01-18 22:00')
+        w = pd.Timedelta(weeks=1)
+        
+        load.loc[start:stop, 'MK'] = load.loc[start+w:stop+w, 'MK'].values
+    
+    
+        # To fill the gaps in MK from start to stop,
+        # we copy the same period from one week before into it
+        start = pd.Timestamp('2018-03-05 23:00')
+        stop = pd.Timestamp('2018-03-06 22:00')
+        w = pd.Timedelta(weeks=1)
+        
+        load.loc[start:stop, 'MK'] = load.loc[start+w:stop+w, 'MK'].values
+    
+        # To fill the gaps in MK from start to stop,
+        # we copy the same period from one week before into it
+        start = pd.Timestamp('2018-03-24 23:00')
+        stop = pd.Timestamp('2018-03-25 21:00')
+        w = pd.Timedelta(weeks=1)
+        
+        load.loc[start:stop, 'MK'] = load.loc[start+w:stop+w, 'MK'].values
+    
+    
+        # To fill the gaps in MK from start to stop,
+        # we copy the same period from one week before into it
+        start = pd.Timestamp('2018-06-14 22:00')
+        stop = pd.Timestamp('2018-06-16 21:00')
+        w = pd.Timedelta(weeks=1)
+        
+        load.loc[start:stop, 'MK'] = load.loc[start+w:stop+w, 'MK'].values
+    
+    
+        # To fill the gaps in MK from start to stop,
+        # we copy the same period from one week before into it
+        start = pd.Timestamp('2018-07-02 22:00')
+        stop = pd.Timestamp('2018-07-03 22:00')
+        w = pd.Timedelta(weeks=1)
+        
+        load.loc[start:stop, 'MK'] = load.loc[start+w:stop+w, 'MK'].values
+    
+         # To fill the gaps in MK from start to stop,
+        # we copy the same period from one week before into it
+        start = pd.Timestamp('2018-08-07 23:00')
+        stop = pd.Timestamp('2018-08-08 21:00')
+        w = pd.Timedelta(weeks=1)
+        
+        load.loc[start:stop, 'MK'] = load.loc[start+w:stop+w, 'MK'].values
+    
+    
+        # To fill the gaps in MK from start to stop,
+        # we copy the same period from one week before into it
+        start = pd.Timestamp('2018-09-16 22:00')
+        stop = pd.Timestamp('2018-09-17 21:00')
+        w = pd.Timedelta(weeks=1)
+        
+        load.loc[start:stop, 'MK'] = load.loc[start+w:stop+w, 'MK'].values
+    
+        # To fill the gaps in MK from start to stop,
+        # we copy the same period from one week before into it
+        start = pd.Timestamp('2018-10-27 22:00')
+        stop = pd.Timestamp('2018-10-29 22:00')
+        w = pd.Timedelta(weeks=1)
+        
+        load.loc[start:stop, 'MK'] = load.loc[start+w:stop+w, 'MK'].values
+    
+        # To fill the gaps in MK from start to stop,
+        # we copy the same period from one week before into it
+        start = pd.Timestamp('2018-10-30 23:00')
+        stop = pd.Timestamp('2018-10-31 22:00')
+        w = pd.Timedelta(weeks=1)
+        
+        load.loc[start:stop, 'MK'] = load.loc[start+w:stop+w, 'MK'].values
+    
+        # To fill the gaps in MK from start to stop,
+        # we copy the same period from one week before into it
+        start = pd.Timestamp('2018-11-09 23:00')
+        stop = pd.Timestamp('2018-11-11 22:00')
+        w = pd.Timedelta(weeks=1)
+        
+        load.loc[start:stop, 'MK'] = load.loc[start+w:stop+w, 'MK'].values
+        
+        # To fill the gaps in LU from start to stop,
+        # we copy the same period from one week before into it
+        start = pd.Timestamp('2018-11-24 23:00')
+        stop = pd.Timestamp('2018-11-25 22:00')
+        w = pd.Timedelta(weeks=1)
+        
+        load.loc[start:stop, 'MK'] = load.loc[start+w:stop+w, 'MK'].values
+       
+        # To fill two inconsistent values 
+        date_1 = pd.Timestamp('2018-09-19 23:00')
+        date_2 = pd.Timestamp('2018-12-13 09:00')
+        w = pd.Timedelta(hours=1)
+        
+        load.loc[date_1, 'MK'] = load.loc[date_1+w, 'MK']
+        load.loc[date_2, 'MK'] = load.loc[date_2+w, 'MK']
+        
+        load['MK'] = load['MK'].interpolate()
+    
+        
+        # manual alterations:
+        # Kosovo (KV) and Albania (AL) do not exist in the data set
+        # Kosovo (KV) gets the same load curve as Serbia (RS)
+        # scale parameter selected by energy consumption ratio from IEA Data browser for the year 2017
+        # https://www.iea.org/data-and-statistics?country=KOSOVO&fuel=Electricity%20and%20heat&indicator=Electricity%20final%20consumption
+        load['KV'] = load['RS'] * (5. / 33.)
+        # Albania (AL) gets the same load curve as Macedonia (MK)
+        # scale parameter selected by energy consumption ratio from IEA Data browser for the year 2017
+        # https://www.iea.org/data-and-statistics?country=ALBANIA&fuel=Electricity%20and%20heat&indicator=Electricity%20final%20consumption
+        load['AL'] = load['MK'] * (6.0 / 7.0)
 
     return load
 
@@ -262,8 +479,8 @@ def attach_load(n):
     substation_lv_i = n.buses.index[n.buses['substation_lv']]
     regions = (gpd.read_file(snakemake.input.regions).set_index('name')
                .reindex(substation_lv_i))
-    opsd_load = (timeseries_opsd(slice(*n.snapshots[[0,-1]].year.astype(str)),
-                                 snakemake.input.opsd_load) *
+    opsd_load = (load_timeseries_opsd(years = slice(*n.snapshots[[0,-1]].year.astype(str)),
+                                 fn=snakemake.input.opsd_load, countries = snakemake.config['countries']) *
                  snakemake.config.get('load', {}).get('scaling_factor', 1.0))
 
     # Convert to naive UTC (has to be explicit since pandas 0.24)

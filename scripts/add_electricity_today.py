@@ -915,7 +915,7 @@ def add_nice_carrier_names(n, config=None):
 if __name__ == "__main__":
     if 'snakemake' not in globals():
         from _helpers import mock_snakemake
-        snakemake = mock_snakemake('add_electricity')
+        snakemake = mock_snakemake('add_electricity_today')
     configure_logging(snakemake)
 
     n = pypsa.Network(snakemake.input.base_network)
@@ -948,9 +948,9 @@ if __name__ == "__main__":
     
     
     attach_hydro(n, costs, ppl)
-    # attach_extendable_generators(n, costs, ppl)
+    attach_extendable_generators(n, costs, ppl)
 
-    # estimate_renewable_capacities(n)
-    # add_nice_carrier_names(n)
+    estimate_renewable_capacities(n)
+    add_nice_carrier_names(n)
 
-    # n.export_to_netcdf(snakemake.output[0])
+    n.export_to_netcdf(snakemake.output[0])

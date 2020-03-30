@@ -199,7 +199,7 @@ def load_powerplants(ppl_fn=None):
             .rename(columns=str.lower).drop(columns=['efficiency'])
             .replace({'carrier': carrier_dict}))
 
-def load_timeseries_opsd(years=slice("2011", "2015"), fn=None, countries=None):
+def load_timeseries_opsd(years=slice("2018", "2018"), fn=None, countries=None, source="ENTSOE-transparency"):
     """
     Read load data from OPSD time-series package version 2019-06-05.
 
@@ -211,7 +211,9 @@ def load_timeseries_opsd(years=slice("2011", "2015"), fn=None, countries=None):
         
     fn : file name
     
-    countries : 
+    countries :
+        
+    source : ENTSOE_transparency or ENTSOE_power_statistics
 
     Returns
     -------
@@ -224,21 +226,34 @@ def load_timeseries_opsd(years=slice("2011", "2015"), fn=None, countries=None):
         
     if countries is None:
         countries = snakemake.config['countries']
-
-    load = (pd.read_csv(fn, index_col=0, parse_dates=True)
-            .loc[:, lambda df: df.columns.to_series().str.endswith('_load_actual_entsoe_transparency')]
-            .rename(columns=lambda s: s[:-len('_load_actual_entsoe_transparency')])
+        
+    if source == 'ENTSOE-transparency':
+        load = (pd.read_csv(fn, index_col=0, parse_dates=True)
+                .loc[:, lambda df: df.columns.to_series().str.endswith('_load_actual_entsoe_transparency')]
+                .rename(columns=lambda s: s[:-len('_load_actual_entsoe_transparency')])
+                .dropna(how="all", axis=0))
+    elif source == 'ENTSOE_power_statistics':
+        load = (pd.read_csv(fn, index_col=0, parse_dates=True)
+            .loc[:, lambda df: df.columns.to_series().str.endswith('_load_actual_entsoe_power_statistics')]
+            .rename(columns=lambda s: s[:-len('_load_actual_entsoe_power_statistics')])
             .dropna(how="all", axis=0))
+    else:
+        logger.warning("Please proviede correct source for load data")
     
-    if 'GB_GBN' in load.columns:
-        load.rename(columns={'GB_GBN' : 'GB'}, inplace=True)
+    
+    if 'GB_UKM' in load.columns:
+        load.rename(columns={'GB_UKM' : 'GB'}, inplace=True)
     
     load = load.filter(items=countries)
 
     if years is not None:
         load = load.loc[years]
+        
+    
+    load = load.interpolate()
 
-    if 2018 in load.index.year:
+
+    if 2018 in load.index.year and source == 'ENTSOE-transparency':
 
         # To fill the gaps in BE 
         # There are two missing hours in 2018
@@ -480,7 +495,9 @@ def attach_load(n):
     regions = (gpd.read_file(snakemake.input.regions).set_index('name')
                .reindex(substation_lv_i))
     opsd_load = (load_timeseries_opsd(years = slice(*n.snapshots[[0,-1]].year.astype(str)),
-                                 fn=snakemake.input.opsd_load, countries = snakemake.config['countries']) *
+                                 fn=snakemake.input.opsd_load,
+                                 countries = snakemake.config['countries'],
+                                 source = "ENTSOE_power_statistics") *
                  snakemake.config.get('load', {}).get('scaling_factor', 1.0))
 
     # Convert to naive UTC (has to be explicit since pandas 0.24)
@@ -587,6 +604,7 @@ def attach_conventional_generators(n, costs, ppl):
     logger.info('Adding {} generators with capacities\n{}'
                 .format(len(ppl), ppl.groupby('carrier').p_nom.sum()))
     n.madd("Generator", ppl.index,
+           suffix='_C_Gen',
            carrier=ppl.carrier,
            bus=ppl.bus,
            p_nom=ppl.p_nom,
@@ -595,6 +613,34 @@ def attach_conventional_generators(n, costs, ppl):
            capital_cost=0)
     logger.warning(f'Capital costs for conventional generators put to 0 EUR/MW.')
 
+def attach_conventional_generator_profiles(n, ppl, profile_pp):
+
+    carriers = snakemake.config['electricity']['conventional_carriers']
+    _add_missing_carriers_from_costs(n, costs, carriers)
+    
+    ppl = (ppl.join(costs, on='carrier').rename(index=lambda s: 'C_p' + str(s)))
+
+    profile_pp = profile_pp.transpose()
+    
+    profile_pp = profile_pp.rename(index=lambda s: 'C_p' + str(s))  
+    
+    ppl_index = profile_pp.index.tolist()
+    
+    ppl = ppl.query('index in @ppl_index')
+
+    logger.info('Adding {} generators and their profiles with capacities\n{}'
+                .format(len(ppl), ppl.groupby('carrier').p_nom.sum()))
+    
+    n.madd("Generator", ppl.index,
+           suffix='_C_Gen_prof',
+           carrier=ppl.carrier,
+           bus=ppl.bus,
+           p_nom=ppl.p_nom,
+           efficiency=1,
+           marginal_cost=0,
+           capital_cost=0,
+           p_max_pu=profile_pp.transpose(),
+           p_min_pu=(profile_pp.transpose()-0.000001))
 
 def attach_hydro(n, costs, ppl):
     if 'hydro' not in snakemake.config['renewable']: return
@@ -789,11 +835,17 @@ if __name__ == "__main__":
     costs = load_costs(Nyears)
     ppl = load_powerplants()
 
-    # attach_load(n)
+    attach_load(n)
+    
+    profile_pp = pd.read_csv(snakemake.input.profile_pp, index_col=0, parse_dates=True)
+    
+    attach_conventional_generator_profiles(n, ppl, profile_pp)
+    ppl_index = profile_pp.columns.tolist()
+    ppl = ppl.query('index not in @ppl_index')
 
-    # update_transmission_costs(n, costs)
+    update_transmission_costs(n, costs)
 
-    # attach_conventional_generators(n, costs, ppl)
+    attach_conventional_generators(n, costs, ppl)
     # attach_wind_and_solar(n, costs)
     # attach_hydro(n, costs, ppl)
     # attach_extendable_generators(n, costs, ppl)

@@ -553,45 +553,134 @@ def update_transmission_costs(n, costs, length_factor=1.0, simple_hvdc_costs=Fal
     n.links.loc[dc_b, 'capital_cost'] = costs
 
 ### Generators
-
-def attach_wind_and_solar(n, costs):
+def attach_wind_and_solar(n, costs, re_cap_country):
+    re_cap_len = {}
     for tech in snakemake.config['renewable']:
         if tech == 'hydro': continue
 
+        
+        re_cap_len[tech] = 0
         n.add("Carrier", name=tech)
         with xr.open_dataset(getattr(snakemake.input, 'profile_' + tech)) as ds:
-            if ds.indexes['bus'].empty: continue
+            
+            if ds.indexes['bus'].empty:
+                continue
 
-            suptech = tech.split('-', 2)[0]
-            if suptech == 'offwind':
-                underwater_fraction = ds['underwater_fraction'].to_pandas()
-                connection_cost = (snakemake.config['lines']['length_factor'] *
-                                   ds['average_distance'].to_pandas() *
-                                   (underwater_fraction *
-                                    costs.at[tech + '-connection-submarine', 'capital_cost'] +
-                                    (1. - underwater_fraction) *
-                                    costs.at[tech + '-connection-underground', 'capital_cost']))
-                capital_cost = (costs.at['offwind', 'capital_cost'] +
-                                costs.at[tech + '-station', 'capital_cost'] +
-                                connection_cost)
-                logger.info("Added connection cost of {:0.0f}-{:0.0f} Eur/MW/a to {}"
-                            .format(connection_cost.min(), connection_cost.max(), tech))
-            elif suptech == 'onwind':
-                capital_cost = (costs.at['onwind', 'capital_cost'] +
-                                costs.at['onwind-landcosts', 'capital_cost'])
-            else:
-                capital_cost = costs.at[tech, 'capital_cost']
+#            suptech = tech.split('-', 2)[0]
+#            if suptech == 'offwind':
+#                underwater_fraction = ds['underwater_fraction'].to_pandas()
+#                connection_cost = (snakemake.config['lines']['length_factor'] *
+#                                   ds['average_distance'].to_pandas() *
+#                                   (underwater_fraction *
+#                                    costs.at[tech + '-connection-submarine', 'capital_cost'] +
+#                                    (1. - underwater_fraction) *
+#                                    costs.at[tech + '-connection-underground', 'capital_cost']))
+#                capital_cost = (costs.at['offwind', 'capital_cost'] +
+#                                costs.at[tech + '-station', 'capital_cost'] +
+#                                connection_cost)
+#                logger.info("Added connection cost of {:0.0f}-{:0.0f} Eur/MW/a to {}"
+#                            .format(connection_cost.min(), connection_cost.max(), tech))
+#            elif suptech == 'onwind':
+#                capital_cost = (costs.at['onwind', 'capital_cost'] +
+#                                costs.at['onwind-landcosts', 'capital_cost'])
+#            else:
+#                capital_cost = costs.at[tech, 'capital_cost']
+                
+            
+            #distribution of todays renewable capacities according to the installed capacity in each country
 
+            def normed(x): return x.divide(x.sum())
+            
+            #all countrys in the network
+            countries = snakemake.config['countries']
+            
+            re_cap_bus=pd.DataFrame()
+            
+            for country in countries:
+                
+                #print(tech)
+                #print(country)
+                
+                #filter all busses (index) in one country
+                index_country = n.buses.query("country == @country").index
+
+                #CF for each bus in country
+                CF_index_country = ds['profile'].to_pandas().query('index in @index_country').mean(axis=1).to_frame()
+                
+                #land availability for each bus in country
+                potential_index_country = ds['p_nom_max'].to_pandas().to_frame().query('index in @index_country')
+
+                #distribution -> 0.5 x CP + 0.5 x potential 
+                #re_cap_bus = re_cap_bus.append(re_cap_country.loc[country][suptech] * normed(0.5*normed(ds['profile'].to_pandas().query('index in @index_country').mean(axis=1).to_frame())+0.5*normed(ds['p_nom_max'].to_pandas().to_frame().query('index in @index_country'))))
+
+                # distribution -> CF^x * potential^y.
+                
+                x=2
+                y=0.5
+                
+                re_cap_index_country = re_cap_country.loc[country][tech] * normed(CF_index_country.pow(x) * potential_index_country.pow(y))
+
+                re_cap_bus = re_cap_bus.append(re_cap_index_country,verify_integrity=True)
+
+
+            # add renewable capacities to the network
+            
+            logger.info('Adding {} generators with capacities\n{}'
+                .format(tech, re_cap_bus.sum()[0]))
+
+            
             n.madd("Generator", ds.indexes['bus'], ' ' + tech,
                    bus=ds.indexes['bus'],
                    carrier=tech,
-                   p_nom_extendable=True,
-                   p_nom_max=ds['p_nom_max'].to_pandas(),
+                   p_nom=re_cap_bus[0],
                    weight=ds['weight'].to_pandas(),
-                   marginal_cost=costs.at[suptech, 'marginal_cost'],
-                   capital_cost=capital_cost,
-                   efficiency=costs.at[suptech, 'efficiency'],
+                   marginal_cost=costs.at[tech, 'marginal_cost'],
+                   efficiency=costs.at[tech, 'efficiency'],
                    p_max_pu=ds['profile'].transpose('time', 'bus').to_pandas())
+            
+            
+#                   p_nom_extendable=False,
+#                   p_nom_max=ds['p_nom_max'].to_pandas(),
+#                   
+#                   capital_cost=capital_cost,
+# def attach_wind_and_solar(n, costs):
+#     for tech in snakemake.config['renewable']:
+#         if tech == 'hydro': continue
+
+#         n.add("Carrier", name=tech)
+#         with xr.open_dataset(getattr(snakemake.input, 'profile_' + tech)) as ds:
+#             if ds.indexes['bus'].empty: continue
+
+#             suptech = tech.split('-', 2)[0]
+#             if suptech == 'offwind':
+#                 underwater_fraction = ds['underwater_fraction'].to_pandas()
+#                 connection_cost = (snakemake.config['lines']['length_factor'] *
+#                                    ds['average_distance'].to_pandas() *
+#                                    (underwater_fraction *
+#                                     costs.at[tech + '-connection-submarine', 'capital_cost'] +
+#                                     (1. - underwater_fraction) *
+#                                     costs.at[tech + '-connection-underground', 'capital_cost']))
+#                 capital_cost = (costs.at['offwind', 'capital_cost'] +
+#                                 costs.at[tech + '-station', 'capital_cost'] +
+#                                 connection_cost)
+#                 logger.info("Added connection cost of {:0.0f}-{:0.0f} Eur/MW/a to {}"
+#                             .format(connection_cost.min(), connection_cost.max(), tech))
+#             elif suptech == 'onwind':
+#                 capital_cost = (costs.at['onwind', 'capital_cost'] +
+#                                 costs.at['onwind-landcosts', 'capital_cost'])
+#             else:
+#                 capital_cost = costs.at[tech, 'capital_cost']
+
+#             n.madd("Generator", ds.indexes['bus'], ' ' + tech,
+#                    bus=ds.indexes['bus'],
+#                    carrier=tech,
+#                    p_nom_extendable=True,
+#                    p_nom_max=ds['p_nom_max'].to_pandas(),
+#                    weight=ds['weight'].to_pandas(),
+#                    marginal_cost=costs.at[suptech, 'marginal_cost'],
+#                    capital_cost=capital_cost,
+#                    efficiency=costs.at[suptech, 'efficiency'],
+#                    p_max_pu=ds['profile'].transpose('time', 'bus').to_pandas())
 
 
 
@@ -846,8 +935,19 @@ if __name__ == "__main__":
     update_transmission_costs(n, costs)
 
     attach_conventional_generators(n, costs, ppl)
-    # attach_wind_and_solar(n, costs)
-    # attach_hydro(n, costs, ppl)
+    
+    re_cap_country = pd.read_csv(snakemake.input.re_capacity, encoding='Latin-1',skiprows=3,thousands=',',index_col='Country',usecols=['Of which Solar PV', 'Of which Wind onshore','Of which Wind offshore','Country'])
+
+    re_cap_country.rename(columns={'Of which Solar PV': 'solar',
+                                'Of which Wind onshore': 'onwind',
+                                'Of which Wind offshore': 'offwind'
+                                }, inplace = True)
+    
+    
+    attach_wind_and_solar(n, costs, re_cap_country)
+    
+    
+    attach_hydro(n, costs, ppl)
     # attach_extendable_generators(n, costs, ppl)
 
     # estimate_renewable_capacities(n)

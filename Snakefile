@@ -72,6 +72,17 @@ rule build_powerplants:
     # group: 'nonfeedin_preparation'
     script: "scripts/build_powerplants.py"
 
+rule build_renewable_powerplants:
+    input:
+        base_network="networks/base.nc",
+        renewable_powerplants="data/wind_onshore_DE.csv"
+    output: "resources/renewable_powerplants.csv"
+    log: "logs/build_renewable_powerplants.log"
+    threads: 1
+    resources: mem=500
+    # group: 'nonfeedin_preparation'
+    script: "scripts/build_renewable_powerplants.py"
+
 rule base_network:
     input:
         eg_buses='data/entsoegridkit/buses.csv',

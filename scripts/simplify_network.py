@@ -191,7 +191,7 @@ def _aggregate_and_move_components(n, busmap, connection_costs_to_bus, aggregate
 
     _adjust_capital_costs_using_connection_costs(n, connection_costs_to_bus)
 
-    generators, generators_pnl = aggregategenerators(n, busmap)
+    generators, generators_pnl = aggregategenerators(n, busmap, carriers=['solar'], with_time=False)
     replace_components(n, "Generator", generators, generators_pnl)
 
     for one_port in aggregate_one_ports:
@@ -302,7 +302,7 @@ def simplify_links(n):
 def remove_stubs(n):
     logger.info("Removing stubs")
 
-    busmap = busmap_by_stubs(n) #  ['country'])
+    busmap = busmap_by_stubs(n, ['carrier','country'])
 
     connection_costs_to_bus = _compute_connection_costs_to_bus(n, busmap)
 
@@ -333,7 +333,7 @@ def cluster(n, n_clusters):
 if __name__ == "__main__":
     if 'snakemake' not in globals():
         from _helpers import mock_snakemake
-        snakemake = mock_snakemake('simplify_network', simpl='', network='elec')
+        snakemake = mock_snakemake('simplify_network', simpl='', network='elec_today')
     configure_logging(snakemake)
 
     n = pypsa.Network(snakemake.input.network)

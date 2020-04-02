@@ -700,8 +700,8 @@ def attach_wind_and_solar_with_locations(n, costs, re_ppl):
         n.add("Carrier", name=tech)
         with xr.open_dataset(getattr(snakemake.input, 'profile_' + tech)) as ds:
             
-            if ds.indexes['bus'].empty:
-                continue
+            # if ds.indexes['bus'].empty:
+            #     continue
 
             #add todays renewable capacities with locations for each country to the network
 
@@ -714,22 +714,29 @@ def attach_wind_and_solar_with_locations(n, costs, re_ppl):
             
             #filter all busses with renewbale powerplants
             
+            busses_re_ppl = pd.DataFrame()
+            
             busses_re_ppl = re_ppl.bus.unique()
 
             #CF for each bus
             busses_CF = ds['profile'].to_pandas().query('index in @busses_re_ppl')
             #.query('index in @countries')
             
-            re_ppl_CF = re_ppl.bus.copy().to_frame()
+            re_ppl_CF = re_ppl.copy()
+            
+            re_ppl_CF.reset_index(inplace=True)
             
             re_ppl_CF = re_ppl_CF.merge(busses_CF, left_on='bus', right_on=busses_CF.index)
             
-            re_ppl_CF.drop(['bus'], axis=1, inplace=True)
+            re_ppl_CF.set_index('id', inplace=True)
+            
+            re_ppl_CF.drop(['lon', 'lat', 'yearcommissioned', 'p_nom', 'hub_height', 'rotor_dia',
+                            'country', 'carrier', 'bus'], axis=1, inplace=True)
 
             # add renewable capacities to the network
             
             logger.info('Adding {} generators with capacities\n{}'
-                    .format(tech, re_cap_bus.sum()[0]))
+                    .format(tech, re_ppl.p_nom.sum()))
     
             n.madd("Generator", re_ppl.index, ' ' + tech,
                        bus=re_ppl.bus,
@@ -983,33 +990,33 @@ if __name__ == "__main__":
     re_ppl = load_renewable_powerplants()
     
 
-    attach_load(n)
+    # attach_load(n)
     
-    profile_pp = pd.read_csv(snakemake.input.profile_pp, index_col=0, parse_dates=True)
+    # profile_pp = pd.read_csv(snakemake.input.profile_pp, index_col=0, parse_dates=True)
     
-    attach_conventional_generator_profiles(n, ppl, profile_pp)
-    ppl_index = profile_pp.columns.tolist()
-    ppl = ppl.query('index not in @ppl_index')
+    # attach_conventional_generator_profiles(n, ppl, profile_pp)
+    # ppl_index = profile_pp.columns.tolist()
+    # ppl = ppl.query('index not in @ppl_index')
 
-    update_transmission_costs(n, costs)
+    # update_transmission_costs(n, costs)
 
-    attach_conventional_generators(n, costs, ppl)
+    # attach_conventional_generators(n, costs, ppl)
     
-    re_cap_country = pd.read_csv(snakemake.input.re_capacity, encoding='Latin-1',skiprows=3,thousands=',',index_col='Country',usecols=['Of which Solar PV', 'Of which Wind onshore','Of which Wind offshore','Country'])
+    # re_cap_country = pd.read_csv(snakemake.input.re_capacity, encoding='Latin-1',skiprows=3,thousands=',',index_col='Country',usecols=['Of which Solar PV', 'Of which Wind onshore','Of which Wind offshore','Country'])
 
-    re_cap_country.rename(columns={'Of which Solar PV': 'solar',
-                                'Of which Wind onshore': 'onwind',
-                                'Of which Wind offshore': 'offwind'
-                                }, inplace = True)
+    # re_cap_country.rename(columns={'Of which Solar PV': 'solar',
+    #                             'Of which Wind onshore': 'onwind',
+    #                             'Of which Wind offshore': 'offwind'
+    #                             }, inplace = True)
     
     
-    attach_wind_and_solar(n, costs, re_cap_country)
+    # attach_wind_and_solar(n, costs, re_cap_country)
     
     
-    attach_hydro(n, costs, ppl)
-    attach_extendable_generators(n, costs, ppl)
+    # attach_hydro(n, costs, ppl)
+    # attach_extendable_generators(n, costs, ppl)
 
-    estimate_renewable_capacities(n)
-    add_nice_carrier_names(n)
+    # estimate_renewable_capacities(n)
+    # add_nice_carrier_names(n)
 
-    n.export_to_netcdf(snakemake.output[0])
+    # n.export_to_netcdf(snakemake.output[0])

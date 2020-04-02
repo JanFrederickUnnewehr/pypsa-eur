@@ -356,8 +356,8 @@ if __name__ == '__main__':
         ds['underwater_fraction'] = xr.DataArray(underwater_fraction, [buses])
 
     # select only buses with some capacity and minimal capacity factor
-    # ds = ds.sel(bus=((ds['profile'].mean('time') > config.get('min_p_max_pu', 0.)) &
-    #                  (ds['p_nom_max'] > config.get('min_p_nom_max', 0.))))
+    ds = ds.sel(bus=((ds['profile'].mean('time') > config.get('min_p_max_pu', 0.)) &
+                      (ds['p_nom_max'] > config.get('min_p_nom_max', 0.))))
 
     if 'clip_p_max_pu' in config:
         ds['profile'].values[ds['profile'].values < config['clip_p_max_pu']] = 0.

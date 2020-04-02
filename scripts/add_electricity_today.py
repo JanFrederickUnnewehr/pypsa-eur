@@ -199,6 +199,12 @@ def load_powerplants(ppl_fn=None):
             .rename(columns=str.lower).drop(columns=['efficiency'])
             .replace({'carrier': carrier_dict}))
 
+def load_renewable_powerplants(re_ppl_fn=None):
+    if re_ppl_fn is None:
+        re_ppl_fn = snakemake.input.renewable_powerplants
+    return (pd.read_csv(re_ppl_fn, index_col=0, dtype={'bus': 'str'})
+            .rename(columns=str.lower).rename(columns={'capacity': 'p_nom'}))
+
 def load_timeseries_opsd(years=slice("2018", "2018"), fn=None, countries=None, source="ENTSOE-transparency"):
     """
     Read load data from OPSD time-series package version 2019-06-05.
@@ -553,6 +559,7 @@ def update_transmission_costs(n, costs, length_factor=1.0, simple_hvdc_costs=Fal
     n.links.loc[dc_b, 'capital_cost'] = costs
 
 ### Generators
+
 def attach_wind_and_solar(n, costs, re_cap_country):
     re_cap_len = {}
     for tech in snakemake.config['renewable']:
@@ -591,7 +598,7 @@ def attach_wind_and_solar(n, costs, re_cap_country):
 
             def normed(x): return x.divide(x.sum())
             
-            #all countrys in the network
+            #all countrys in the network without renewable powerplants with locations
             countries = snakemake.config['countries']
             
             re_cap_bus=pd.DataFrame()
@@ -681,6 +688,56 @@ def attach_wind_and_solar(n, costs, re_cap_country):
 #                    capital_cost=capital_cost,
 #                    efficiency=costs.at[suptech, 'efficiency'],
 #                    p_max_pu=ds['profile'].transpose('time', 'bus').to_pandas())
+
+
+def attach_wind_and_solar_with_locations(n, costs, re_ppl):
+    re_cap_len = {}
+    for tech in snakemake.config['renewable']:
+        if tech == 'hydro': continue
+
+        
+        re_cap_len[tech] = 0
+        n.add("Carrier", name=tech)
+        with xr.open_dataset(getattr(snakemake.input, 'profile_' + tech)) as ds:
+            
+            if ds.indexes['bus'].empty:
+                continue
+
+            #add todays renewable capacities with locations for each country to the network
+
+            #all countrys in the network without renewable powerplants with locations
+            countries = re_ppl.country.unique()
+            
+                
+            #print(tech)
+            #print(country)
+            
+            #filter all busses with renewbale powerplants
+            
+            busses_re_ppl = re_ppl.bus.unique()
+
+            #CF for each bus
+            busses_CF = ds['profile'].to_pandas().query('index in @busses_re_ppl')
+            #.query('index in @countries')
+            
+            re_ppl_CF = re_ppl.bus.copy().to_frame()
+            
+            re_ppl_CF = re_ppl_CF.merge(busses_CF, left_on='bus', right_on=busses_CF.index)
+            
+            re_ppl_CF.drop(['bus'], axis=1, inplace=True)
+
+            # add renewable capacities to the network
+            
+            logger.info('Adding {} generators with capacities\n{}'
+                    .format(tech, re_cap_bus.sum()[0]))
+    
+            n.madd("Generator", re_ppl.index, ' ' + tech,
+                       bus=re_ppl.bus,
+                       carrier=tech,
+                       p_nom=re_ppl.p_nom,
+                       marginal_cost=costs.at[tech, 'marginal_cost'],
+                       efficiency=costs.at[tech, 'efficiency'],
+                       p_max_pu=re_ppl_CF.transpose())            
 
 
 
@@ -923,6 +980,8 @@ if __name__ == "__main__":
 
     costs = load_costs(Nyears)
     ppl = load_powerplants()
+    re_ppl = load_renewable_powerplants()
+    
 
     attach_load(n)
     

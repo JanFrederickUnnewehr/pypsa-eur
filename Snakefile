@@ -75,7 +75,7 @@ rule build_powerplants:
 rule build_renewable_powerplants:
     input:
         base_network="networks/base.nc",
-        renewable_powerplants="data/wind_onshore_DE.csv"
+        installed_renewable_capacities="data/installed_renewable_capacities/wind_onshore_DE.csv"
     output: "resources/renewable_powerplants.csv"
     log: "logs/build_renewable_powerplants.log"
     threads: 1
@@ -237,6 +237,7 @@ rule add_electricity_today:
         tech_costs=COSTS,
         regions="resources/regions_onshore.geojson",
         powerplants='resources/powerplants.csv',
+        renewable_powerplants='resources/renewable_powerplants.csv',
         hydro_capacities='data/bundle/hydro_capacities.csv',
         geth_hydro_capacities='data/geth2015_hydro_capacities.csv',
         opsd_load='data/bundle/time_series_60min_singleindex_filtered.csv',

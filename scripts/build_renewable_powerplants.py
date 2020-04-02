@@ -99,9 +99,10 @@ if __name__ == "__main__":
     n = pypsa.Network(snakemake.input.base_network)
     countries = n.buses.country.unique()
 
-    re_ppl = pd.read_csv(snakemake.input.renewable_powerplants, index_col=2)
+    re_ppl = pd.read_csv(snakemake.input.installed_renewable_capacities, index_col=2)
     
     re_ppl['Country'] = 'DE'
+    re_ppl['Carrier'] = 'onwind'
     
     #         (pm.powerplants(from_url=True)
     #        .powerplant.fill_missing_decommyears()
@@ -131,10 +132,10 @@ if __name__ == "__main__":
         re_ppl.loc[re_ppl_i, 'bus'] = substation_i.append(pd.Index([np.nan]))[tree_i]
 
     if cntries_without_re_ppl:
-        logging.warning("No powerplants known in: {' ',join(cntries_without_re_ppl)}")
+        logging.warning(f"No renewable powerplants known in: {', '.join(cntries_without_re_ppl)}")
 
-    # bus_null_b = ppl["bus"].isnull()
-    # if bus_null_b.any():
-    #     logging.warning(f"Couldn't find close bus for {bus_null_b.sum()} powerplants")
+    bus_null_b = re_ppl["bus"].isnull()
+    if bus_null_b.any():
+        logging.warning(f"Couldn't find close bus for {bus_null_b.sum()} renewable powerplants")
 
-    # ppl.to_csv(snakemake.output[0])
+    re_ppl.to_csv(snakemake.output[0])

@@ -691,12 +691,11 @@ def attach_wind_and_solar(n, costs, re_cap_country):
 
 
 def attach_wind_and_solar_with_locations(n, costs, re_ppl):
-    re_cap_len = {}
+    
     for tech in snakemake.config['renewable']:
         if tech == 'hydro': continue
 
         
-        re_cap_len[tech] = 0
         n.add("Carrier", name=tech)
         with xr.open_dataset(getattr(snakemake.input, 'profile_' + tech)) as ds:
             

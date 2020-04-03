@@ -77,6 +77,7 @@ import pypsa
 import powerplantmatching as pm
 import pandas as pd
 import numpy as np
+import glob
 
 # def add_custom_re_powerplants(re_ppl):
 #     custom_ppl_query = snakemake.config['electricity']['custom_powerplants']
@@ -98,44 +99,62 @@ if __name__ == "__main__":
 
     n = pypsa.Network(snakemake.input.base_network)
     countries = n.buses.country.unique()
-
-    re_ppl = pd.read_csv(snakemake.input.installed_renewable_capacities, index_col=2)
     
-    re_ppl['Country'] = 'DE'
-    re_ppl['Carrier'] = 'onwind'
     
-    #         (pm.powerplants(from_url=True)
-    #        .powerplant.fill_missing_decommyears()
-    #        .powerplant.convert_country_to_alpha2()
-    #        .query('Fueltype not in ["Solar", "Wind"] and Country in @countries')
-    #        .replace({'Technology': {'Steam Turbine': 'OCGT'}})
-    #         .assign(Fueltype=lambda df: (
-    #                 df.Fueltype
-    #                   .where(df.Fueltype != 'Natural Gas',
-    #                          df.Technology.replace('Steam Turbine',
-    #                                                'OCGT').fillna('OCGT')))))
 
-    # ppl_query = snakemake.config['electricity']['powerplants_filter']
-    # if isinstance(ppl_query, str):
-    #     ppl.query(ppl_query, inplace=True)
+    
+    re_ppl = pd.read_csv(snakemake.input.installed_renewable_capacities, usecols=['commissioning_date', 'decommissioning_date',
+                                                                                 'technology', 'electrical_capacity', 'federal_state',
+                                                                                 'postcode', 'municipality_code', 'municipality', 
+                                                                                 'address', 'lat', 'lon', 'data_source', 'comment'],
+                         parse_dates=['commissioning_date', 'decommissioning_date'], encoding='utf-8')
+    
+    tech_dict = {'Photovoltaics ground': 'solar', 'Photovoltaics': 'solar', 'Onshore':'onshore', 'Offshore': 'offshore'}
+    
+    re_ppl = re_ppl.replace({'technology': tech_dict})
+    
+    re_ppl = re_ppl.rename(columns={'electrical_capacity': 'capacity'})
+    
+    re_ppl = re_ppl.query('technology in ["onshore", "offshore", "solar"]')
+    
+    re_ppl = re_ppl[re_ppl.commissioning_date < n.snapshots[-1]]
+    
+    re_ppl = re_ppl[~(re_ppl.decommissioning_date < n.snapshots[-1])]
+    
+    
+    
 
-    # ppl = add_custom_powerplants(ppl) # add carriers from own powerplant files
+    
+    
+    #re_ppl = re_ppl[re_ppl.commissioning_date.loc[n.snapshots[-1]]]
 
-    cntries_without_re_ppl = [c for c in countries if c not in re_ppl.Country.unique()]
+    # #re_ppl = pd.read_csv(snakemake.input.installed_renewable_capacities, index_col=2)
+    
+    # re_ppl['Country'] = 'DE'
+    # re_ppl['Carrier'] = 'onwind'
 
-    for c in countries:
-        substation_i = n.buses.query('substation_lv and country == @c').index
-        kdtree = KDTree(n.buses.loc[substation_i, ['x','y']].values)
-        re_ppl_i = re_ppl.query('Country == @c').index
 
-        tree_i = kdtree.query(re_ppl.loc[re_ppl_i, ['lon','lat']].values)[1]
-        re_ppl.loc[re_ppl_i, 'bus'] = substation_i.append(pd.Index([np.nan]))[tree_i]
+    # # ppl_query = snakemake.config['electricity']['powerplants_filter']
+    # # if isinstance(ppl_query, str):
+    # #     ppl.query(ppl_query, inplace=True)
 
-    if cntries_without_re_ppl:
-        logging.warning(f"No renewable powerplants known in: {', '.join(cntries_without_re_ppl)}")
+    # # ppl = add_custom_powerplants(ppl) # add carriers from own powerplant files
 
-    bus_null_b = re_ppl["bus"].isnull()
-    if bus_null_b.any():
-        logging.warning(f"Couldn't find close bus for {bus_null_b.sum()} renewable powerplants")
+    # cntries_without_re_ppl = [c for c in countries if c not in re_ppl.Country.unique()]
 
-    re_ppl.to_csv(snakemake.output[0])
+    # for c in countries:
+    #     substation_i = n.buses.query('substation_lv and country == @c').index
+    #     kdtree = KDTree(n.buses.loc[substation_i, ['x','y']].values)
+    #     re_ppl_i = re_ppl.query('Country == @c').index
+
+    #     tree_i = kdtree.query(re_ppl.loc[re_ppl_i, ['lon','lat']].values)[1]
+    #     re_ppl.loc[re_ppl_i, 'bus'] = substation_i.append(pd.Index([np.nan]))[tree_i]
+
+    # if cntries_without_re_ppl:
+    #     logging.warning(f"No renewable powerplants known in: {', '.join(cntries_without_re_ppl)}")
+
+    # bus_null_b = re_ppl["bus"].isnull()
+    # if bus_null_b.any():
+    #     logging.warning(f"Couldn't find close bus for {bus_null_b.sum()} renewable powerplants")
+
+    # re_ppl.to_csv(snakemake.output[0])

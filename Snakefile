@@ -75,7 +75,7 @@ rule build_powerplants:
 rule build_renewable_powerplants:
     input:
         base_network="networks/base.nc",
-        installed_renewable_capacities="data/installed_renewable_capacities/wind_onshore_DE.csv"
+        installed_renewable_capacities="data/installed_renewable_capacities/renewable_power_plants_DE.csv"
     output: "resources/renewable_powerplants.csv"
     log: "logs/build_renewable_powerplants.log"
     threads: 1

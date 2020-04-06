@@ -103,11 +103,11 @@ if __name__ == "__main__":
     
 
     
-    re_ppl = pd.read_csv(snakemake.input.installed_renewable_capacities, usecols=['commissioning_date', 'decommissioning_date',
+    re_ppl = pd.read_csv(snakemake.input.installed_renewable_capacities_DE, usecols=['commissioning_date', 'decommissioning_date',
                                                                                  'technology', 'electrical_capacity', 'federal_state',
-                                                                                 'postcode', 'municipality_code', 'municipality', 
-                                                                                 'address', 'lat', 'lon', 'data_source', 'comment'],
-                         parse_dates=['commissioning_date', 'decommissioning_date'], encoding='utf-8')
+                                                                                 'postcode', 'municipality', 
+                                                                                 'address', 'lat', 'lon'],
+                                                                                 parse_dates=['commissioning_date', 'decommissioning_date'], encoding='utf-8')
     
     tech_dict = {'Photovoltaics ground': 'solar', 'Photovoltaics': 'solar', 'Onshore':'onshore', 'Offshore': 'offshore'}
     
@@ -115,46 +115,151 @@ if __name__ == "__main__":
     
     re_ppl = re_ppl.rename(columns={'electrical_capacity': 'capacity'})
     
-    re_ppl = re_ppl.query('technology in ["onshore", "offshore", "solar"]')
+    re_ppl = re_ppl.query('technology in ["solar"]') # "offshore", "onshore"]
     
     re_ppl = re_ppl[re_ppl.commissioning_date < n.snapshots[-1]]
     
     re_ppl = re_ppl[~(re_ppl.decommissioning_date < n.snapshots[-1])]
     
+     
+    # find coordinates for some solar entries
     
+    re_ppl_solar = re_ppl.query('technology == "solar"').copy()
+     
+    solar_isna_index = re_ppl_solar[re_ppl_solar.lat.isna()].index
+    
+    for i in solar_isna_index:
+        re_ppl_solar_i = re_ppl_solar.loc[i]
+        re_ppl_solar_i_loc = pm.utils.parse_Geoposition(location=re_ppl_solar_i[['federal_state', 'municipality', 'address']].to_list(), country=['Germany'])
+        try:
+            re_ppl_solar.at[i, 'lat'] = re_ppl_solar_i_loc.lat
+            re_ppl_solar.at[i, 'lon'] = re_ppl_solar_i_loc.lon
+        except AttributeError:
+            re_ppl_solar_i_loc = pm.utils.parse_Geoposition(location=re_ppl_solar_i['federal_state'], country=['Germany'])
+            try:
+                re_ppl_solar.at[i, 'lat'] = re_ppl_solar_i_loc.lat
+                re_ppl_solar.at[i, 'lon'] = re_ppl_solar_i_loc.lon
+            except AttributeError:
+                pass
+            
+    
+            
+    re_ppl_solar['Country'] = 'DE'
+    re_ppl_solar['Carrier'] = 'solar'
+    
+    del re_ppl
+
+    # # bei vielen offshore windparls fehlen die Koordinaten.
+    # # erster Ansatz diese zu erstellen ist zu afuwenig. Siehe follgenden Ansatz
+    
+    #re_ppl_offshore = re_ppl.query('technology == "offshore"').copy()
+    
+    # # find index where lat is nan and capacity is 6.263999999999999 this turbines belomgs to Gode Wind 1 & 2 (in totla 97 turbines)
+    # # https://en.wikipedia.org/wiki/List_of_offshore_wind_farms_in_Germany
+    
+    # Gode_Wind_i = re_ppl_offshore[re_ppl_offshore.lat.isna() & (re_ppl_offshore.capacity == 6.263999999999999)].index
+    
+    # re_ppl_offshore.at[Gode_Wind_i, 'lat'] = 54.05
+    # re_ppl_offshore.at[Gode_Wind_i, 'lon'] = 7.016667
+    
+    
+    # # find index where lat is nan and capacity is 6.15 and commissioning_date.dt.year <= 2015 this turbines belomgs to Nordsee_Ost_i (in totla 48 turbines)
+    # # https://en.wikipedia.org/wiki/List_of_offshore_wind_farms_in_Germany
+    
+    # Nordsee_Ost_i = re_ppl_offshore[re_ppl_offshore.lat.isna() & (re_ppl_offshore.capacity == 6.15) & (re_ppl_offshore.commissioning_date.dt.year <= 2015)].index
+    
+    # re_ppl_offshore.at[Nordsee_Ost_i, 'lat'] = 54.44
+    # re_ppl_offshore.at[Nordsee_Ost_i, 'lon'] = 7.68
+    
+    
+    
+    # # find index where lat is nan and capacity is 6.15 and commissioning_date.dt.year > 2015 and the re_ppl_offshore.federal_state == 'Ausschließliche Wirtschaftszone'
+    # # this turbines belomgs to Nordsee_One (in totla 54 turbines)
+    # # https://en.wikipedia.org/wiki/List_of_offshore_wind_farms_in_Germany
+    # Nordsee_One_i = re_ppl_offshore[re_ppl_offshore.lat.isna() & (re_ppl_offshore.capacity == 6.15) & (re_ppl_offshore.commissioning_date.dt.year > 2015) &  (re_ppl_offshore.federal_state == 'Ausschließliche Wirtschaftszone')].index
+
+    # re_ppl_offshore.at[Nordsee_One_i, 'lat'] = 53.978889
+    # re_ppl_offshore.at[Nordsee_One_i, 'lon'] = 6.813889    
+    
+
+    # # find index where lat is nan and capacity is 6.15 and commissioning_date.dt.year > 2015 and the re_ppl_offshore.federal_state == 'Ausschließliche Wirtschaftszone'
+    # # this turbines belomgs to Nordergründe (in totla 18 turbines)
+    # #https://de.wikipedia.org/wiki/Offshore-Windpark_Nordergr%C3%BCnde
+    # Norder_gruende_i = re_ppl_offshore[re_ppl_offshore.lat.isna() & (re_ppl_offshore.capacity == 6.15) & (re_ppl_offshore.commissioning_date.dt.year > 2015) &  (re_ppl_offshore.federal_state == 'Niedersachsen')].index
+
+    # re_ppl_offshore.at[Norder_gruende_i, 'lat'] = 53.844319
+    # re_ppl_offshore.at[Norder_gruende_i, 'lon'] = 8.163276  
+    
+    
+    
+    # alpha_ventus_i = re_ppl_offshore[re_ppl_offshore.lat.isna() & (re_ppl_offshore.commissioning_date.dt.year <= 2010) & (re_ppl_offshore.federal_state == 'Niedersachsen')].index
+
+    # re_ppl_offshore.at[alpha_ventus_i, 'lat'] = 54.008333
+    # re_ppl_offshore.at[alpha_ventus_i, 'lon'] = 6.598333 
+    
+    # Riffgat_i = re_ppl_offshore[re_ppl_offshore.lat.isna() & (re_ppl_offshore.capacity == 3.78) &  (re_ppl_offshore.federal_state == 'Niedersachsen')].index
+
+    # re_ppl_offshore.at[Riffgat_i, 'lat'] = 53.69
+    # re_ppl_offshore.at[Riffgat_i, 'lon'] = 6.48
+
+
+    # Nordergruende = re_ppl_offshore[re_ppl_offshore.lat.isna() & (re_ppl_offshore.capacity == 3.78) &  (re_ppl_offshore.federal_state == 'Niedersachsen')].index
+
+    # re_ppl_offshore.at[Riffgat_i, 'lat'] = 53.69
+    # re_ppl_offshore.at[Riffgat_i, 'lon'] = 6.48    
+    
+        
     
 
     
     
     #re_ppl = re_ppl[re_ppl.commissioning_date.loc[n.snapshots[-1]]]
 
-    # #re_ppl = pd.read_csv(snakemake.input.installed_renewable_capacities, index_col=2)
+    re_ppl_onwind = pd.read_csv(snakemake.input.installed_renewable_capacities_DE_onwind, index_col=2)
     
-    # re_ppl['Country'] = 'DE'
-    # re_ppl['Carrier'] = 'onwind'
+    re_ppl_onwind['Country'] = 'DE'
+    re_ppl_onwind['Carrier'] = 'onwind'
+    re_ppl_onwind = re_ppl_onwind.rename(columns={'Capacity': 'capacity'})
+
+    
+    
+    re_ppl_offwind = pd.read_csv(snakemake.input.installed_renewable_capacities_DE_offwind, usecols=['Capacity','YearCommissioned','lat', 'lon'], parse_dates=['YearCommissioned'])
+
+    re_ppl_offwind['Country'] = 'DE'
+    re_ppl_offwind['Carrier'] = 'offwind'
+    re_ppl_offwind = re_ppl_offwind.rename(columns={'Capacity': 'capacity'})
+    re_ppl_offwind = re_ppl_offwind[re_ppl_offwind.YearCommissioned < n.snapshots[-1]]
+    
+    re_ppl = pd.concat([re_ppl_solar, re_ppl_onwind, re_ppl_offwind])
 
 
-    # # ppl_query = snakemake.config['electricity']['powerplants_filter']
-    # # if isinstance(ppl_query, str):
-    # #     ppl.query(ppl_query, inplace=True)
+    cntries_without_re_ppl = [c for c in countries if c not in re_ppl.Country.unique()]
+    
+    # find bus for solar and onwind
 
-    # # ppl = add_custom_powerplants(ppl) # add carriers from own powerplant files
+    for c in countries:
+        substation_i = n.buses.query('substation_lv and country == @c').index
+        kdtree = KDTree(n.buses.loc[substation_i, ['x','y']].values)
+        re_ppl_i = re_ppl.query('Country == @c and Carrier in ["onwind", "solar"]').index
 
-    # cntries_without_re_ppl = [c for c in countries if c not in re_ppl.Country.unique()]
+        tree_i = kdtree.query(re_ppl.loc[re_ppl_i, ['lon','lat']].values)[1]
+        re_ppl.loc[re_ppl_i, 'bus'] = substation_i.append(pd.Index([np.nan]))[tree_i]
 
-    # for c in countries:
-    #     substation_i = n.buses.query('substation_lv and country == @c').index
-    #     kdtree = KDTree(n.buses.loc[substation_i, ['x','y']].values)
-    #     re_ppl_i = re_ppl.query('Country == @c').index
+    # find bus for offshore
 
-    #     tree_i = kdtree.query(re_ppl.loc[re_ppl_i, ['lon','lat']].values)[1]
-    #     re_ppl.loc[re_ppl_i, 'bus'] = substation_i.append(pd.Index([np.nan]))[tree_i]
+    for c in countries:
+        substation_i = n.buses.query('substation_off and country == @c').index
+        kdtree = KDTree(n.buses.loc[substation_i, ['x','y']].values)
+        re_ppl_i = re_ppl.query('Country == @c and Carrier in ["offwind"]').index
 
-    # if cntries_without_re_ppl:
-    #     logging.warning(f"No renewable powerplants known in: {', '.join(cntries_without_re_ppl)}")
+        tree_i = kdtree.query(re_ppl.loc[re_ppl_i, ['lon','lat']].values)[1]
+        re_ppl.loc[re_ppl_i, 'bus'] = substation_i.append(pd.Index([np.nan]))[tree_i]
 
-    # bus_null_b = re_ppl["bus"].isnull()
-    # if bus_null_b.any():
-    #     logging.warning(f"Couldn't find close bus for {bus_null_b.sum()} renewable powerplants")
+    if cntries_without_re_ppl:
+        logging.warning(f"No renewable powerplants known in: {', '.join(cntries_without_re_ppl)}")
 
-    # re_ppl.to_csv(snakemake.output[0])
+    bus_null_b = re_ppl["bus"].isnull()
+    if bus_null_b.any():
+        logging.warning(f"Couldn't find close bus for {bus_null_b.sum()} renewable powerplants")
+
+    re_ppl.to_csv(snakemake.output[0])

@@ -191,7 +191,7 @@ def _aggregate_and_move_components(n, busmap, connection_costs_to_bus, aggregate
 
     _adjust_capital_costs_using_connection_costs(n, connection_costs_to_bus)
 
-    generators, generators_pnl = aggregategenerators(n, busmap, carriers=['solar'], with_time=False)
+    generators, generators_pnl = aggregategenerators(n, busmap, carriers=['solar','onwind','offwind'], with_time=False)
     replace_components(n, "Generator", generators, generators_pnl)
 
     for one_port in aggregate_one_ports:

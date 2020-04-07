@@ -610,8 +610,8 @@ def attach_wind_and_solar(n, costs, re_cap_country, re_ppl):
             re_cap_bus=pd.DataFrame()
             
             
-            
-            ds = ds.sel(bus=list(n.buses.query("country in @countries").index))
+            # filter ds to countries without renewbales
+            ds = ds.where(ds.bus.isin(n.buses.query("country in @countries").index))
             
             for country in countries:
                 
@@ -1022,7 +1022,7 @@ if __name__ == "__main__":
                                 }, inplace = True)
     
     
-    attach_wind_and_solar(n, costs, re_cap_country, re_ppl)
+    #attach_wind_and_solar(n, costs, re_cap_country, re_ppl)
     
     
     # attach_hydro(n, costs, ppl)

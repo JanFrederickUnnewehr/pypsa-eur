@@ -567,6 +567,7 @@ def attach_wind_and_solar(n, costs, re_cap_country):
 
         
         re_cap_len[tech] = 0
+        if tech is not in n.ca
         n.add("Carrier", name=tech)
         with xr.open_dataset(getattr(snakemake.input, 'profile_' + tech)) as ds:
             
@@ -604,7 +605,7 @@ def attach_wind_and_solar(n, costs, re_cap_country):
             
             re_cap_bus=pd.DataFrame()
             
-            for country in:
+            for country in countries:
                 
                 #print(tech)
                 #print(country)
@@ -703,35 +704,28 @@ def attach_wind_and_solar_with_locations(n, costs, re_ppl):
             # if ds.indexes['bus'].empty:
             #     continue
 
-            #add todays renewable capacities with locations for each country to the network
-            re_ppl = re_ppl.query()
-            #all countrys in the network without renewable powerplants with locations
-            countries = re_ppl.country.unique()
+            #add todays renewable capacities with locations to the network
             
-                
-            #print(tech)
-            #print(country)
+            #filter re_ppl 
+            re_ppl = re_ppl.query('carrier == @tech')
             
-            #filter all busses with renewbale powerplants
+            # agg. because dataframe is to large for merge function maybe for all techs
             
-            busses_re_ppl = pd.DataFrame()
+            re_ppl = re_ppl.groupby(['bus'], as_index=False).agg({'p_nom': 'sum', 'country': 'first', 'carrier': 'first'})
             
+            #filter all busses in the network with renewbale powerplants           
+            busses_re_ppl = pd.DataFrame()           
             busses_re_ppl = re_ppl.bus.unique()
 
-            #CF for each bus
+            #CF for each bus in the network
             busses_CF = ds['profile'].to_pandas().query('index in @busses_re_ppl')
-            #.query('index in @countries')
-            
-            re_ppl_CF = re_ppl.copy()
-            
-            re_ppl_CF.reset_index(inplace=True)
-            
+            #reset index for merge function
+            re_ppl.reset_index(inplace=True)
+            re_ppl_CF = re_ppl[['index','bus']]
+
             re_ppl_CF = re_ppl_CF.merge(busses_CF, left_on='bus', right_on=busses_CF.index)
             
-            re_ppl_CF.set_index('id', inplace=True)
-            
-            re_ppl_CF.drop(['lon', 'lat', 'yearcommissioned', 'p_nom', 'hub_height', 'rotor_dia',
-                            'country', 'carrier', 'bus'], axis=1, inplace=True)
+            re_ppl_CF.set_index('index', inplace=True)
 
             # add renewable capacities to the network
             
@@ -986,7 +980,7 @@ if __name__ == "__main__":
     n = pypsa.Network(snakemake.input.base_network)
     Nyears = n.snapshot_weightings.sum()/8760.
 
-    #loading powerplant data (powerplants and ava) and cost data
+    #loading powerplant data (powerplants and available profiles) and cost data
     costs = load_costs(Nyears)
     ppl = load_powerplants()
     re_ppl = load_renewable_powerplants()
@@ -997,30 +991,36 @@ if __name__ == "__main__":
     #load
     attach_load(n)
     
-    
-    
+    #conventianal ppl and available profiles   
     attach_conventional_generator_profiles(n, ppl, profile_pp)
+    
+    #filter ppl without profiles
     ppl_index = profile_pp.columns.tolist()
     ppl = ppl.query('index not in @ppl_index')
 
-    update_transmission_costs(n, costs)
-
+    #attach ppl without profiles
     attach_conventional_generators(n, costs, ppl)
-    
+  
+    #wind and solar with exact locataions
     attach_wind_and_solar_with_locations(n, cost, re_ppl)
     
-    # re_cap_country = pd.read_csv(snakemake.input.re_capacity, encoding='Latin-1',skiprows=3,thousands=',',index_col='Country',usecols=['Of which Solar PV', 'Of which Wind onshore','Of which Wind offshore','Country'])
+    
+    
+    re_cap_country = pd.read_csv(snakemake.input.re_capacity, encoding='Latin-1',skiprows=3,thousands=',',index_col='Country',usecols=['Of which Solar PV', 'Of which Wind onshore','Of which Wind offshore','Country'])
 
-    # re_cap_country.rename(columns={'Of which Solar PV': 'solar',
-    #                             'Of which Wind onshore': 'onwind',
-    #                             'Of which Wind offshore': 'offwind'
-    #                             }, inplace = True)
+    re_cap_country.rename(columns={'Of which Solar PV': 'solar',
+                                'Of which Wind onshore': 'onwind',
+                                'Of which Wind offshore': 'offwind'
+                                }, inplace = True)
     
     
-    # attach_wind_and_solar(n, costs, re_cap_country)
+    attach_wind_and_solar(n, costs, re_cap_country)
     
     
     # attach_hydro(n, costs, ppl)
+    
+    
+    #update_transmission_costs(n, costs)
     # attach_extendable_generators(n, costs, ppl)
 
     # estimate_renewable_capacities(n)

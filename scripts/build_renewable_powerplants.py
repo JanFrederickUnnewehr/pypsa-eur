@@ -77,7 +77,6 @@ import pypsa
 import powerplantmatching as pm
 import pandas as pd
 import numpy as np
-import glob
 
 # def add_custom_re_powerplants(re_ppl):
 #     custom_ppl_query = snakemake.config['electricity']['custom_powerplants']
@@ -100,10 +99,8 @@ if __name__ == "__main__":
     n = pypsa.Network(snakemake.input.base_network)
     countries = n.buses.country.unique()
     
-    
-
-    
-    re_ppl = pd.read_csv(snakemake.input.installed_renewable_capacities_DE, usecols=['commissioning_date', 'decommissioning_date',
+       
+    re_ppl = pd.read_csv(snakemake.input.installed_renewable_capacities_DE, sep=',', usecols=['commissioning_date', 'decommissioning_date',
                                                                                  'technology', 'electrical_capacity', 'federal_state',
                                                                                  'postcode', 'municipality', 
                                                                                  'address', 'lat', 'lon'],
@@ -230,7 +227,7 @@ if __name__ == "__main__":
     re_ppl_offwind = re_ppl_offwind.rename(columns={'Capacity': 'capacity'})
     re_ppl_offwind = re_ppl_offwind[re_ppl_offwind.YearCommissioned < n.snapshots[-1]]
     
-    re_ppl = pd.concat([re_ppl_solar, re_ppl_onwind, re_ppl_offwind])
+    re_ppl = pd.concat([re_ppl_solar, re_ppl_onwind, re_ppl_offwind], ignore_index=True)
 
 
     cntries_without_re_ppl = [c for c in countries if c not in re_ppl.Country.unique()]

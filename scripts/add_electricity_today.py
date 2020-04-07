@@ -560,15 +560,15 @@ def update_transmission_costs(n, costs, length_factor=1.0, simple_hvdc_costs=Fal
 
 ### Generators
 
-def attach_wind_and_solar(n, costs, re_cap_country):
+def attach_wind_and_solar(n, costs, re_cap_country, re_ppl):
     re_cap_len = {}
     for tech in snakemake.config['renewable']:
         if tech == 'hydro': continue
 
         
         re_cap_len[tech] = 0
-        if tech is not in n.ca
-        n.add("Carrier", name=tech)
+        if tech not in n.carriers.index:
+            n.add("Carrier", name=tech)
         with xr.open_dataset(getattr(snakemake.input, 'profile_' + tech)) as ds:
             
             if ds.indexes['bus'].empty:
@@ -599,11 +599,19 @@ def attach_wind_and_solar(n, costs, re_cap_country):
 
             def normed(x): return x.divide(x.sum())
             
+            countries = list(n.buses.country.unique())
+            
             #all countrys in the network without renewable powerplants with locations
-            countries = snakemake.config['countries']
-            countries.remove('DE')
+            countries_with_re = list(re_ppl[re_ppl.carrier == tech].country.unique())
+            
+            for i in countries_with_re:
+                countries.remove(i)
             
             re_cap_bus=pd.DataFrame()
+            
+            
+            
+            ds = ds.sel(bus=list(n.buses.query("country in @countries").index))
             
             for country in countries:
                 
@@ -697,8 +705,8 @@ def attach_wind_and_solar_with_locations(n, costs, re_ppl):
     for tech in snakemake.config['renewable']:
         if tech == 'hydro': continue
 
-        
-        n.add("Carrier", name=tech)
+        if tech not in n.carriers.index:
+            n.add("Carrier", name=tech)
         with xr.open_dataset(getattr(snakemake.input, 'profile_' + tech)) as ds:
             
             # if ds.indexes['bus'].empty:
@@ -707,21 +715,21 @@ def attach_wind_and_solar_with_locations(n, costs, re_ppl):
             #add todays renewable capacities with locations to the network
             
             #filter re_ppl 
-            re_ppl = re_ppl.query('carrier == @tech')
+            re_ppl_tech = re_ppl.query('carrier == @tech')
             
             # agg. because dataframe is to large for merge function maybe for all techs
             
-            re_ppl = re_ppl.groupby(['bus'], as_index=False).agg({'p_nom': 'sum', 'country': 'first', 'carrier': 'first'})
+            re_ppl_tech = re_ppl_tech.groupby(['bus'], as_index=False).agg({'p_nom': 'sum', 'country': 'first', 'carrier': 'first'})
             
             #filter all busses in the network with renewbale powerplants           
             busses_re_ppl = pd.DataFrame()           
-            busses_re_ppl = re_ppl.bus.unique()
+            busses_re_ppl = re_ppl_tech.bus.unique()
 
             #CF for each bus in the network
             busses_CF = ds['profile'].to_pandas().query('index in @busses_re_ppl')
             #reset index for merge function
-            re_ppl.reset_index(inplace=True)
-            re_ppl_CF = re_ppl[['index','bus']]
+            re_ppl_tech.reset_index(inplace=True)
+            re_ppl_CF = re_ppl_tech[['index','bus']]
 
             re_ppl_CF = re_ppl_CF.merge(busses_CF, left_on='bus', right_on=busses_CF.index)
             
@@ -730,12 +738,12 @@ def attach_wind_and_solar_with_locations(n, costs, re_ppl):
             # add renewable capacities to the network
             
             logger.info('Adding {} generators with capacities\n{}'
-                    .format(tech, re_ppl.p_nom.sum()))
+                    .format(tech, re_ppl_tech.p_nom.sum()))
     
-            n.madd("Generator", re_ppl.index, ' ' + tech,
-                       bus=re_ppl.bus,
+            n.madd("Generator", re_ppl_tech.index, ' ' + tech,
+                       bus=re_ppl_tech.bus,
                        carrier=tech,
-                       p_nom=re_ppl.p_nom,
+                       p_nom=re_ppl_tech.p_nom,
                        marginal_cost=costs.at[tech, 'marginal_cost'],
                        efficiency=costs.at[tech, 'efficiency'],
                        p_max_pu=re_ppl_CF.transpose())            
@@ -1002,7 +1010,7 @@ if __name__ == "__main__":
     attach_conventional_generators(n, costs, ppl)
   
     #wind and solar with exact locataions
-    attach_wind_and_solar_with_locations(n, cost, re_ppl)
+    attach_wind_and_solar_with_locations(n, costs, re_ppl)
     
     
     
@@ -1014,7 +1022,7 @@ if __name__ == "__main__":
                                 }, inplace = True)
     
     
-    attach_wind_and_solar(n, costs, re_cap_country)
+    attach_wind_and_solar(n, costs, re_cap_country, re_ppl)
     
     
     # attach_hydro(n, costs, ppl)

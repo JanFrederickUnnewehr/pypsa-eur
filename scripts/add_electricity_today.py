@@ -1022,16 +1022,16 @@ if __name__ == "__main__":
                                 }, inplace = True)
     
     
-    #attach_wind_and_solar(n, costs, re_cap_country, re_ppl)
+    attach_wind_and_solar(n, costs, re_cap_country, re_ppl)
     
     
-    # attach_hydro(n, costs, ppl)
+    attach_hydro(n, costs, ppl)
     
     
-    #update_transmission_costs(n, costs)
-    # attach_extendable_generators(n, costs, ppl)
+    update_transmission_costs(n, costs)
+    attach_extendable_generators(n, costs, ppl)
 
-    # estimate_renewable_capacities(n)
-    # add_nice_carrier_names(n)
+    estimate_renewable_capacities(n)
+    add_nice_carrier_names(n)
 
-    # n.export_to_netcdf(snakemake.output[0])
+    n.export_to_netcdf(snakemake.output[0])

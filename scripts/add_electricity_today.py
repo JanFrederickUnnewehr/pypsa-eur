@@ -202,7 +202,7 @@ def load_powerplants(ppl_fn=None):
 def load_renewable_powerplants(re_ppl_fn=None):
     if re_ppl_fn is None:
         re_ppl_fn = snakemake.input.renewable_powerplants
-    return (pd.read_csv(re_ppl_fn, index_col=0, dtype={'bus': 'str'})
+    return (pd.read_csv(re_ppl_fn, usecols=['capacity', 'Country', 'Carrier', 'bus'], dtype={'bus': 'str'})
             .rename(columns=str.lower).rename(columns={'capacity': 'p_nom'}))
 
 def load_timeseries_opsd(years=slice("2018", "2018"), fn=None, countries=None, source="ENTSOE-transparency"):
@@ -600,10 +600,11 @@ def attach_wind_and_solar(n, costs, re_cap_country):
             
             #all countrys in the network without renewable powerplants with locations
             countries = snakemake.config['countries']
+            countries.remove('DE')
             
             re_cap_bus=pd.DataFrame()
             
-            for country in countries:
+            for country in:
                 
                 #print(tech)
                 #print(country)
@@ -703,7 +704,7 @@ def attach_wind_and_solar_with_locations(n, costs, re_ppl):
             #     continue
 
             #add todays renewable capacities with locations for each country to the network
-
+            re_ppl = re_ppl.query()
             #all countrys in the network without renewable powerplants with locations
             countries = re_ppl.country.unique()
             
@@ -980,26 +981,33 @@ if __name__ == "__main__":
         from _helpers import mock_snakemake
         snakemake = mock_snakemake('add_electricity_today')
     configure_logging(snakemake)
-
+    
+    #loading pypsa Network and simulation year
     n = pypsa.Network(snakemake.input.base_network)
     Nyears = n.snapshot_weightings.sum()/8760.
 
+    #loading powerplant data (powerplants and ava) and cost data
     costs = load_costs(Nyears)
     ppl = load_powerplants()
     re_ppl = load_renewable_powerplants()
+    profile_pp = pd.read_csv(snakemake.input.profile_pp, index_col=0, parse_dates=True)
     
-
-    # attach_load(n)
+    #attach components to pypsa network
     
-    # profile_pp = pd.read_csv(snakemake.input.profile_pp, index_col=0, parse_dates=True)
+    #load
+    attach_load(n)
     
-    # attach_conventional_generator_profiles(n, ppl, profile_pp)
-    # ppl_index = profile_pp.columns.tolist()
-    # ppl = ppl.query('index not in @ppl_index')
+    
+    
+    attach_conventional_generator_profiles(n, ppl, profile_pp)
+    ppl_index = profile_pp.columns.tolist()
+    ppl = ppl.query('index not in @ppl_index')
 
-    # update_transmission_costs(n, costs)
+    update_transmission_costs(n, costs)
 
-    # attach_conventional_generators(n, costs, ppl)
+    attach_conventional_generators(n, costs, ppl)
+    
+    attach_wind_and_solar_with_locations(n, cost, re_ppl)
     
     # re_cap_country = pd.read_csv(snakemake.input.re_capacity, encoding='Latin-1',skiprows=3,thousands=',',index_col='Country',usecols=['Of which Solar PV', 'Of which Wind onshore','Of which Wind offshore','Country'])
 

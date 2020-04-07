@@ -256,7 +256,7 @@ if __name__ == "__main__":
         re_ppl.loc[re_ppl_i, 'bus'] = substation_i.append(pd.Index([np.nan]))[tree_i]
 
     if cntries_without_re_ppl:
-        logging.warning(f"No renewable powerplants known in: {', '.join(cntries_without_re_ppl)}")
+        logging.warning(f"No renewable powerplants with location known in: {', '.join(cntries_without_re_ppl)}")
 
     bus_null_b = re_ppl["bus"].isnull()
     if bus_null_b.any():

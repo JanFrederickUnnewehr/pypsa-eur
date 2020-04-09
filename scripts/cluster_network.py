@@ -255,12 +255,21 @@ def clustering_for_n_clusters(n, n_clusters, aggregate_carriers=None,
     clustering = get_clustering_from_busmap(
         n, busmap_for_n_clusters(n, n_clusters, solver_name, focus_weights, algorithm),
         bus_strategies=dict(country=_make_consense("Bus", "country")),
-        aggregate_generators_weighted=True,
+        aggregate_generators_weighted=False,
         aggregate_generators_carriers=aggregate_carriers,
         aggregate_one_ports=["Load", "StorageUnit"],
         line_length_factor=line_length_factor,
-        generator_strategies={'p_nom_max': p_nom_max_strategy},
         scale_link_capital_costs=False)
+
+    # clustering = get_clustering_from_busmap(
+    #     n, busmap_for_n_clusters(n, n_clusters, solver_name, focus_weights, algorithm),
+    #     bus_strategies=dict(country=_make_consense("Bus", "country")),
+    #     aggregate_generators_weighted=True,
+    #     aggregate_generators_carriers=aggregate_carriers,
+    #     aggregate_one_ports=["Load", "StorageUnit"],
+    #     line_length_factor=line_length_factor,
+    #     generator_strategies={'p_nom_max': p_nom_max_strategy},
+    #     scale_link_capital_costs=False)
 
     if not n.links.empty:
         nc = clustering.network
@@ -296,7 +305,7 @@ def cluster_regions(busmaps, input=None, output=None):
 if __name__ == "__main__":
     if 'snakemake' not in globals():
         from _helpers import mock_snakemake
-        snakemake = mock_snakemake('cluster_network', network='elec', simpl='', clusters='5')
+        snakemake = mock_snakemake('cluster_network', network='elec_today', simpl='', clusters='41')
     configure_logging(snakemake)
 
     n = pypsa.Network(snakemake.input.network)
@@ -306,6 +315,8 @@ if __name__ == "__main__":
     renewable_carriers = pd.Index([tech
                                    for tech in n.generators.carrier.unique()
                                    if tech.split('-', 2)[0] in snakemake.config['renewable']])
+    #weil hydro nur bei mir in den renewable car auftaucht bei dem normalen pypsa ist hydro nur stor unit bei mir auch gen weil ich profile vorgebe 
+    renewable_carriers = renewable_carriers.difference(['hydro'])
 
     if snakemake.wildcards.clusters.endswith('m'):
         n_clusters = int(snakemake.wildcards.clusters[:-1])

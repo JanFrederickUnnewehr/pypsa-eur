@@ -251,7 +251,7 @@ if __name__ == "__main__":
     if 'snakemake' not in globals():
         from _helpers import mock_snakemake
         snakemake = mock_snakemake('plot_network', network='elec', simpl='',
-                                  clusters='5', ll='copt', opts='Co2L-24H',
+                                  clusters='', ll='', opts='',
                                   attr='p_nom', ext="pdf")
     configure_logging(snakemake)
 
@@ -260,7 +260,7 @@ if __name__ == "__main__":
     opts = snakemake.config['plotting']
     map_figsize = opts['map']['figsize']
     map_boundaries = opts['map']['boundaries']
-
+    
     n = load_network_for_plots(snakemake.input.network, snakemake.input.tech_costs, snakemake.config)
 
     scenario_opts = snakemake.wildcards.opts.split('-')

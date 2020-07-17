@@ -197,18 +197,6 @@ def load_powerplants(ppl_fn=None):
             .rename(columns=str.lower).drop(columns=['efficiency'])
             .replace({'carrier': carrier_dict}))
 
-def load_opsd_loaddata(load_fn=None, countries=None):
-    if load_fn is None:
-        load_fn = snakemake.input.load
-    
-    if countries is None:
-        countries = snakemake.config['countries']
-    
-    load = pd.read_csv(load_fn, index_col=0, parse_dates=True)
-    load = load.filter(items=countries)
-    
-    return (load)
-
 # =============================================================================
 # Attach components
 # =============================================================================
@@ -219,7 +207,8 @@ def attach_load(n):
     substation_lv_i = n.buses.index[n.buses['substation_lv']]
     regions = (gpd.read_file(snakemake.input.regions).set_index('name')
                .reindex(substation_lv_i))
-    opsd_load = load_opsd_loaddata(load_fn=snakemake.input.load, countries=snakemake.config['countries'])
+    opsd_load = (pd.read_csv(snakemake.input.load, index_col=0, parse_dates=True)
+                .filter(items=snakemake.config['countries']))
     
     # Scalling data according to scalling factor in config.yaml
     logger.info(f"Load data scalled with scalling factior {snakemake.config['load']['scaling_factor']}.")

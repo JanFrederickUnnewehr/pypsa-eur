@@ -500,11 +500,12 @@ def attach_load(n):
     substation_lv_i = n.buses.index[n.buses['substation_lv']]
     regions = (gpd.read_file(snakemake.input.regions).set_index('name')
                .reindex(substation_lv_i))
-    opsd_load = (load_timeseries_opsd(years = slice(*n.snapshots[[0,-1]].year.astype(str)),
-                                 fn=snakemake.input.opsd_load,
-                                 countries = snakemake.config['countries'],
-                                 source = "ENTSOE_power_statistics") *
-                 snakemake.config.get('load', {}).get('scaling_factor', 1.0))
+    opsd_load = (pd.read_csv(snakemake.input.load, index_col=0, parse_dates=True)
+                .filter(items=snakemake.config['countries']))
+    
+    # Scalling data according to scalling factor in config.yaml
+    logger.info(f"Load data scalled with scalling factor {snakemake.config['load']['scaling_factor']}.")
+    opsd_load = opsd_load * snakemake.config.get('load', {}).get('scaling_factor', 1.0)
 
     # Convert to naive UTC (has to be explicit since pandas 0.24)
     opsd_load.index = opsd_load.index.tz_localize(None)

@@ -251,7 +251,7 @@ rule add_electricity_today:
         renewable_powerplants='resources/renewable_powerplants.csv',
         hydro_capacities='data/bundle/hydro_capacities.csv',
         geth_hydro_capacities='data/geth2015_hydro_capacities.csv',
-        opsd_load='data/bundle/time_series_60min_singleindex_filtered.csv',
+        load='resources/opsd_load.csv',
         nuts3_shapes='resources/nuts3_shapes.geojson',
         profile_pp='resources/profile_pp.csv',
         re_capacity='data/NGC_edited.csv',

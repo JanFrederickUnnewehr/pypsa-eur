@@ -226,6 +226,8 @@ if __name__ == "__main__":
     re_ppl_offwind['Carrier'] = 'offwind'
     re_ppl_offwind = re_ppl_offwind.rename(columns={'Capacity': 'capacity'})
     re_ppl_offwind = re_ppl_offwind[re_ppl_offwind.YearCommissioned < n.snapshots[-1]]
+    #convert to MW
+    re_ppl_offwind.capacity = re_ppl_offwind.capacity / 1000
     
     re_ppl = pd.concat([re_ppl_solar, re_ppl_onwind, re_ppl_offwind], ignore_index=True)
 

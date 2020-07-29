@@ -343,7 +343,7 @@ if __name__ == "__main__":
     renewable_carriers = pd.Index([tech
                                    for tech in n.generators.carrier.unique()
                                    if tech.split('-', 2)[0] in snakemake.config['renewable']])
-    #weil hydro nur bei mir in den renewable car auftaucht bei dem normalen pypsa ist hydro nur stor unit bei mir auch gen weil ich profile vorgebe 
+    #remove hydro from cluster list because i have hydro also in generation with individuel generation time series 
     renewable_carriers = renewable_carriers.difference(['hydro'])
 
     if snakemake.wildcards.clusters.endswith('m'):

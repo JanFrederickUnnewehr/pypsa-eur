@@ -99,9 +99,14 @@ def powerplant_generation (pp_id, generation_data, ppl):
         pp_gen = pp_gen.resample(rule='60Min').apply({'ActualGenerationOutput': 'mean',
                                                       'ActualConsumption': 'mean'})
     
-    pp_gen['Generation-Consumption'] = pp_gen['ActualGenerationOutput'] - pp_gen['ActualConsumption']
+    # die beiden Zeilen stimmen wohl nicht. 
+    # pp_gen['Generation-Consumption'] = pp_gen['ActualGenerationOutput'] - pp_gen['ActualConsumption']
     
-    pp_gen['Generation-Consumption_pu'] = pp_gen['Generation-Consumption'].div(p_nom)
+    # pp_gen['Generation-Consumption_pu'] = pp_gen['Generation-Consumption'].div(p_nom)
+    
+    pp_gen['ActualGenerationOutput_pu'] = pp_gen['ActualGenerationOutput'].div(p_nom)
+    
+    pp_gen['ActualConsumption_pu'] = pp_gen['ActualConsumption'].div(p_nom)
    
     return pp_gen
 
@@ -242,7 +247,7 @@ if __name__ == "__main__":
         for i in range(len(ppl.index)):
             bar.update(i)
             try:
-                pp_profiles[ppl.index[i]] = powerplant_generation(pp_id = ppl.index[i], generation_data = data_merged_agg_fresna, ppl=ppl)['Generation-Consumption_pu']      
+                pp_profiles[ppl.index[i]] = powerplant_generation(pp_id = ppl.index[i], generation_data = data_merged_agg_fresna, ppl=ppl)['ActualGenerationOutput_pu']      
             except:
                 pass
     

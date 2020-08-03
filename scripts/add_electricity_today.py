@@ -527,7 +527,8 @@ def attach_hydro(n, costs, ppl):
     hydro = ppl.query('technology == "Reservoir"')
 
     country = ppl['bus'].map(n.buses.country).rename("country")
-
+    
+    # get indices from ror and hydro for inflow of water (combine both indices of dataframe)
     inflow_idx = ror.index | hydro.index
     if not inflow_idx.empty:
         dist_key = ppl.loc[inflow_idx, 'p_nom'].groupby(country).transform(normed)
@@ -538,14 +539,17 @@ def attach_hydro(n, costs, ppl):
                          .difference(inflow.indexes['countries']))
             assert missing_c.empty, (f"'{snakemake.input.profile_hydro}' is missing "
                 f"inflow time-series for at least one country: {', '.join(missing_c)}")
-
+                       
+            # inflow data from era data for each country, is distributed over all power plant by there p_nom values
+            # inflow in MW oder auch MW/h kommt darauf an wie inflow erzeugt wurde
             inflow_t = (inflow.sel(countries=inflow_countries)
                         .rename({'countries': 'name'})
                         .assign_coords(name=inflow_idx)
                         .transpose('time', 'name')
                         .to_pandas()
                         .multiply(dist_key, axis=1))
-
+            
+            # verfügbare ror einsepisung wird über länder inflow erzeugt
     if 'ror' in carriers and not ror.empty:
         n.madd("Generator", ror.index,
                carrier='ror',
@@ -607,7 +611,7 @@ def attach_hydro(n, costs, ppl):
                              if c.get('hydro_capital_cost') else 0.),
                marginal_cost=costs.at['hydro', 'marginal_cost'],
                p_max_pu=1.,  # dispatch
-               p_min_pu=0.,  # store
+               p_min_pu=0.,  # no storing alloud store
                efficiency_dispatch=costs.at['hydro', 'efficiency'],
                efficiency_store=0.,
                cyclic_state_of_charge=True,
@@ -715,7 +719,7 @@ if __name__ == "__main__":
     #load
     attach_load(n)
     
-    #conventianal ppl and available profiles   
+    #conventianal ppl and available profiles also hydro    
     attach_conventional_generator_profiles(n, ppl, profile_pp)
     
     #filter ppl without profiles

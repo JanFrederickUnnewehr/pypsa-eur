@@ -138,7 +138,12 @@ def import_entsoe_pp_timeseries(path):
     
     entsoe_pp_timeseries.index = pd.to_datetime(entsoe_pp_timeseries.index)
 
-    entsoe_pp_timeseries.reset_index(inplace=True)   
+    entsoe_pp_timeseries.reset_index(inplace=True)
+    
+    #set generation and consumtion as absolut value (assuming that the negative entries are incorrect)
+    entsoe_pp_timeseries['ActualGenerationOutput'] = entsoe_pp_timeseries.ActualGenerationOutput.abs()
+    
+    entsoe_pp_timeseries['ActualConsumption'] = entsoe_pp_timeseries.ActualConsumption.abs()
     
     logger.info("ENTSO E Actual GenerationOutput Per Unit is loaded")
     

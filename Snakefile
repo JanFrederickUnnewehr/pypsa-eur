@@ -205,8 +205,10 @@ rule build_renewable_profiles:
 rule build_powerplant_profiles:
     input:
         path_entsoe_pp_timeseries="data/ActualGenerationOutputPerUnit",
-        jrc_units="data/JRC_OPEN_UNITS.csv"
-    output: profile="resources/profile_pp.csv"
+        jrc_units="data/JRC_OPEN_UNITS.csv",
+        powerplants='resources/powerplants.csv'
+    output:
+        profile_pp="resources/profile_pp.nc"
     # group: 'feedin_preparation'
     script: "scripts/build_powerplant_profiles.py"
 
@@ -253,7 +255,7 @@ rule add_electricity_today:
         geth_hydro_capacities='data/geth2015_hydro_capacities.csv',
         load='resources/opsd_load.csv',
         nuts3_shapes='resources/nuts3_shapes.geojson',
-        profile_pp='resources/profile_pp.csv',
+        profile_pp='resources/profile_pp.nc',
         re_capacity='data/NGC_edited.csv',
         **{'profile_' + t: "resources/profile_" + t + ".nc"
            for t in config['renewable']}

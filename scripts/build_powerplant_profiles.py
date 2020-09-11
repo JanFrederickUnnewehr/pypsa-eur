@@ -33,11 +33,17 @@ from _helpers import configure_logging
 
 
 import glob
+import numpy as np
+import xarray as xr
 import pandas as pd
 import powerplantmatching as pm
 import progressbar
 
+def load_powerplants(ppl_fn=None):
+    if ppl_fn is None:
+        ppl_fn = snakemake.input.powerplants
 
+    return (pd.read_csv(ppl_fn, index_col=0, dtype={'bus': 'str'}).pipe(pm.utils.projectID_to_dict))
 
 def powerplant_generation (pp_id, generation_data, ppl):       
     
@@ -63,8 +69,18 @@ def powerplant_generation (pp_id, generation_data, ppl):
     """
     
     pp_gen = generation_data[['ActualGenerationOutput', 'ActualConsumption', 'ResolutionCode', 'InstalledGenCapacity']].loc[generation_data['fresna_id'].isin([pp_id])].copy()
-    
-    p_nom = ppl.Capacity.iloc[pp_id] if ppl.Capacity.iloc[pp_id] > pp_gen.InstalledGenCapacity.max() else pp_gen.InstalledGenCapacity.max()
+
+
+    # hier sollte man vielleicht noch etwas hinzufügen, dass man eine Meldung bekommt, dass es keinen mathc zwischen fresna und entso gab
+    if pp_gen.empty:
+        raise IndexError()
+     
+    if ppl.Capacity.loc[pp_id] >= pp_gen.InstalledGenCapacity.max():        
+        p_nom = ppl.Capacity.loc[pp_id]
+        
+    else:
+        p_nom = pp_gen.InstalledGenCapacity.max()
+        
 
     pp_gen.ActualGenerationOutput.where(pp_gen.ActualGenerationOutput <= p_nom, p_nom, inplace = True)
 
@@ -108,7 +124,7 @@ def powerplant_generation (pp_id, generation_data, ppl):
     
     pp_gen['ActualConsumption_pu'] = pp_gen['ActualConsumption'].div(p_nom)
    
-    return pp_gen
+    return pp_gen, p_nom
 
 def import_entsoe_pp_timeseries(path):
     # combining path and .csv data
@@ -204,8 +220,9 @@ if __name__ == "__main__":
     #set index after groupby function
     data_merged_agg.set_index('DateTime', inplace=True)
     
-    #loud ppl from powerplantmatching 
-    ppl = pm.powerplants(from_url=True).query('Fueltype not in ["Solar", "Wind"]')
+    #loud ppl data 
+    ppl = load_powerplants()
+
 
     # all eic_p numbers in data_merged_agg
     data_merged_agg_ID = list(data_merged_agg.eic_p.unique())
@@ -244,18 +261,34 @@ if __name__ == "__main__":
     #set index after groupby function
     data_merged_agg_fresna.set_index('DateTime', inplace=True)
     
+    generation_data = data_merged_agg_fresna
+    
+    
+    
     #generating pp profiles out of the data
     
+    pp_id = generation_data['fresna_id'].unique().astype(int).tolist()
+    
     pp_profiles = pd.DataFrame()
+    pp_capacity = dict()
     logger.info("Creating pp profiles")
-    with progressbar.ProgressBar(max_value=len(ppl.index)) as bar:     
-        for i in range(len(ppl.index)):
+    difsum = 0
+    
+    with progressbar.ProgressBar(max_value=len(pp_id)) as bar:     
+        for i in range(len(pp_id)):
             bar.update(i)
             try:
-                pp_profiles[ppl.index[i]] = powerplant_generation(pp_id = ppl.index[i], generation_data = data_merged_agg_fresna, ppl=ppl)['ActualGenerationOutput_pu']      
+                pp_profiles_temp, p_nom_temp = powerplant_generation(pp_id = pp_id[i], generation_data = generation_data, ppl=ppl)
+                pp_profiles[pp_id[i]] = pp_profiles_temp['ActualGenerationOutput_pu']
+                pp_capacity.update( {str(pp_id[i]) : p_nom_temp} )
+                dif = ppl.Capacity.loc[pp_id[i]] - p_nom_temp
+                difsum += dif
             except:
                 pass
     
-    pp_profiles.to_csv(snakemake.output[0])
+    pp_profile_data = xr.DataArray(pp_profiles, dims=["time","pp_id"], attrs=pp_capacity, name='profile')
+    
+    pp_profile_data.to_netcdf(snakemake.output.profile_pp)
     
     
+

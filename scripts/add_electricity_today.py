@@ -481,20 +481,30 @@ def attach_conventional_generators(n, costs, ppl):
            capital_cost=0)
     logger.warning(f'Capital costs for conventional generators put to 0 EUR/MW.')
 
-def attach_conventional_generator_profiles(n, ppl, profile_pp):
+def attach_conventional_generator_profiles(n, ppl):
 
     carriers = snakemake.config['electricity']['conventional_carriers']
     _add_missing_carriers_from_costs(n, costs, carriers)
     
-    ppl = (ppl.join(costs, on='carrier').rename(index=lambda s: 'C_p' + str(s)))
+    profile_pp_data = xr.open_dataset(snakemake.input.profile_pp)
+
+    profile_pp = profile_pp_data['profile'].to_pandas()
+    
+    pp_cap = pd.DataFrame.from_dict(profile_pp_data.profile.attrs, orient='index', columns=['capacity'])
+    
+    #pp_cap = pp_cap.rename(index=lambda s: 'C_p' + str(s))
+
+    ppl = (ppl.join(costs, on='carrier'))#.rename(index=lambda s: 'C_p' + str(s)))
 
     profile_pp = profile_pp.transpose()
     
-    profile_pp = profile_pp.rename(index=lambda s: 'C_p' + str(s))  
+    #profile_pp = profile_pp.rename(index=lambda s: 'C_p' + str(s))  
     
     ppl_index = profile_pp.index.tolist()
     
     ppl = ppl.query('index in @ppl_index')
+    
+    ppl.p_nom.update(other=pp_cap.capacity)
 
     logger.info('Adding {} generators and their profiles with capacities\n{}'
                 .format(len(ppl), ppl.groupby('carrier').p_nom.sum()))
@@ -509,6 +519,8 @@ def attach_conventional_generator_profiles(n, ppl, profile_pp):
            capital_cost=0,
            p_max_pu=profile_pp.transpose(),
            p_min_pu=(profile_pp.transpose()-0.000001))
+    
+    return ppl_index
 
 def attach_hydro(n, costs, ppl):
     if 'hydro' not in snakemake.config['renewable']: return
@@ -711,11 +723,10 @@ if __name__ == "__main__":
     n = pypsa.Network(snakemake.input.base_network)
     Nyears = n.snapshot_weightings.sum()/8760.
 
-    #loading powerplant data (powerplants and available profiles) and cost data
+    #loading powerplant data and cost data
     costs = load_costs(Nyears)
     ppl = load_powerplants()
     re_ppl = load_renewable_powerplants()
-    profile_pp = pd.read_csv(snakemake.input.profile_pp, index_col=0, parse_dates=True)
     
     #attach components to pypsa network
     
@@ -723,10 +734,10 @@ if __name__ == "__main__":
     attach_load(n)
     
     #conventianal ppl and available profiles also hydro    
-    attach_conventional_generator_profiles(n, ppl, profile_pp)
+    ppl_index = attach_conventional_generator_profiles(n, ppl)
     
     #filter ppl without profiles
-    ppl_index = profile_pp.columns.tolist()
+
     ppl = ppl.query('index not in @ppl_index')
 
     #attach ppl without profiles

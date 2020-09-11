@@ -103,7 +103,7 @@ if __name__ == "__main__":
     n = pypsa.Network(snakemake.input.base_network)
     countries = n.buses.country.unique()
 
-    ppl = (pm.powerplants(from_url=False, update_all=True)
+    ppl = (pm.powerplants(from_url=False, update=True)
            .powerplant.fill_missing_decommyears()
            .powerplant.convert_country_to_alpha2()
            .query('Fueltype not in ["Solar", "Wind"] and Country in @countries')

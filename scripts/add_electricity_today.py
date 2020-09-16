@@ -495,6 +495,8 @@ def attach_conventional_generator_profiles(n, ppl):
     #pp_cap = pp_cap.rename(index=lambda s: 'C_p' + str(s))
 
     ppl = (ppl.join(costs, on='carrier'))#.rename(index=lambda s: 'C_p' + str(s)))
+    
+    ppl.carrier.loc[266] = 'CCGT' # small correction
 
     profile_pp = profile_pp.transpose()
     

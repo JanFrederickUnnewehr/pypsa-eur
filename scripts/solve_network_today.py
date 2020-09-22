@@ -45,7 +45,7 @@ Inputs
 Outputs
 -------
 
-- ``results/networks/{network}_s{simpl}_{clusters}_ec_l{ll}_{opts}.nc``: Solved PyPSA network including optimisation results
+- ``results/networks_today/{network}_s{simpl}_{clusters}_ec_l{ll}_{opts}.nc``: Solved PyPSA network including optimisation results
 
     .. image:: ../img/results.png
         :scale: 40 %
@@ -104,12 +104,12 @@ def prepare_network(n, solve_opts):
             df.where(df>solve_opts['clip_p_max_pu'], other=0., inplace=True)
 
     if solve_opts.get('load_shedding'):
-        n.add("Carrier", "Load")
+        n.add("Carrier", name="load", color="#ea048a")
         n.madd("Generator", n.buses.index, " load",
                bus=n.buses.index,
                carrier='load',
-               sign=1e-3, # Adjust sign to measure p and p_nom in kW instead of MW
-               marginal_cost=1e2, # Eur/kWh
+               sign=1, # in MW #1e-3, # Adjust sign to measure p and p_nom in kW instead of MW
+               marginal_cost=1e4, # Eur/kWh
                # intersect between macroeconomic and surveybased
                # willingness to pay
                # http://journal.frontiersin.org/article/10.3389/fenrg.2015.00055/full
@@ -132,6 +132,10 @@ def prepare_network(n, solve_opts):
         nhours = solve_opts['nhours']
         n.set_snapshots(n.snapshots[:nhours])
         n.snapshot_weightings[:] = 8760./nhours
+        
+    if solve_opts.get('s_max_pu'):
+        s_max_pu = solve_opts['s_max_pu']
+        n.lines['s_max_pu'] = s_max_pu
 
     return n
 
@@ -236,6 +240,27 @@ def solve_network(n, config, solver_log=None, opts='', **kwargs):
               extra_functionality=extra_functionality, **kwargs)
     return n
 
+def solve_network_test(n, config, solver_log=None, opts='', **kwargs):
+    solver_options = config['solving']['solver'].copy()
+    solver_name = solver_options.pop('name')
+    track_iterations = config['solving']['options'].get('track_iterations', False)
+    min_iterations = config['solving']['options'].get('min_iterations', 4)
+    max_iterations = config['solving']['options'].get('max_iterations', 6)
+
+    # add to network for extra_functionality
+    n.config = config
+    n.opts = opts
+    #teste ob man albes Netzwerk lösen kann
+    if config['solving']['options'].get('skip_iterations', False):
+        network_lopf(n, snapshots=n.snapshots[4380:], solver_name=solver_name, solver_options=solver_options,
+                     extra_functionality=extra_functionality, **kwargs)
+    else:
+        ilopf(n, solver_name=solver_name, solver_options=solver_options,
+              track_iterations=track_iterations,
+              min_iterations=min_iterations,
+              max_iterations=max_iterations,
+              extra_functionality=extra_functionality, **kwargs)
+    return n
 
 if __name__ == "__main__":
     if 'snakemake' not in globals():
@@ -251,7 +276,7 @@ if __name__ == "__main__":
     solve_opts = snakemake.config['solving']['options']
 
     with memory_logger(filename=getattr(snakemake.log, 'memory', None),
-                       interval=30.) as mem:
+                        interval=30.) as mem:
         n = pypsa.Network(snakemake.input[0])
         n = prepare_network(n, solve_opts)
         n = solve_network(n, config=snakemake.config, solver_dir=tmpdir,

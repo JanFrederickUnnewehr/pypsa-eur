@@ -364,7 +364,7 @@ def attach_wind_and_solar(n, costs, re_cap_country, re_ppl):
                    carrier=tech,
                    p_nom=re_cap_bus[0],
                    weight=ds['weight'].to_pandas(),
-                   marginal_cost=costs.at[tech, 'marginal_cost'],
+                   marginal_cost=costs.at[tech, 'marginal_cost']-1000,
                    efficiency=costs.at[tech, 'efficiency'],
                    p_max_pu=ds['profile'].transpose('time', 'bus').to_pandas())
             
@@ -457,7 +457,7 @@ def attach_wind_and_solar_with_locations(n, costs, re_ppl):
                        bus=re_ppl_tech.bus,
                        carrier=tech,
                        p_nom=re_ppl_tech.p_nom,
-                       marginal_cost=costs.at[tech, 'marginal_cost'],
+                       marginal_cost=costs.at[tech, 'marginal_cost']-1000,
                        efficiency=costs.at[tech, 'efficiency'],
                        p_max_pu=re_ppl_CF.transpose())            
 

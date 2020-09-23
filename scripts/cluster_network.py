@@ -356,9 +356,9 @@ if __name__ == "__main__":
     else:
         line_length_factor = snakemake.config['lines']['length_factor']
         hvac_overhead_cost = (load_costs(n.snapshot_weightings.sum()/8760,
-                                    tech_costs=snakemake.input.tech_costs,
-                                    config=snakemake.config['costs'],
-                                    elec_config=snakemake.config['electricity'])
+                                   tech_costs=snakemake.input.tech_costs,
+                                   config=snakemake.config['costs'],
+                                   elec_config=snakemake.config['electricity'])
                               .at['HVAC overhead', 'capital_cost'])
 
         def consense(x):
@@ -368,13 +368,13 @@ if __name__ == "__main__":
             )
             return v
         potential_mode = consense(pd.Series([snakemake.config['renewable'][tech]['potential']
-                                              for tech in renewable_carriers]))
+                                             for tech in renewable_carriers]))
         clustering = clustering_for_n_clusters(n, n_clusters, aggregate_carriers,
-                                                line_length_factor=line_length_factor,
-                                                potential_mode=potential_mode,
-                                                solver_name=snakemake.config['solving']['solver']['name'],
-                                                extended_link_costs=hvac_overhead_cost,
-                                                focus_weights=focus_weights)
+                                               line_length_factor=line_length_factor,
+                                               potential_mode=potential_mode,
+                                               solver_name=snakemake.config['solving']['solver']['name'],
+                                               extended_link_costs=hvac_overhead_cost,
+                                               focus_weights=focus_weights)
 
     clustering.network.export_to_netcdf(snakemake.output.network)
     with pd.HDFStore(snakemake.output.clustermaps, mode='w') as store:

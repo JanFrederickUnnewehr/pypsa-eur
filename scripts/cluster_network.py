@@ -332,8 +332,8 @@ if __name__ == "__main__":
     focus_weights = snakemake.config.get('focus_weights', None)
 
     renewable_carriers = pd.Index([tech
-                                    for tech in n.generators.carrier.unique()
-                                    if tech.split('-', 2)[0] in snakemake.config['renewable']])
+                                   for tech in n.generators.carrier.unique()
+                                   if tech.split('-', 2)[0] in snakemake.config['renewable']])
     #remove hydro from cluster list because i have hydro also in generation with individuel generation time series 
     renewable_carriers = renewable_carriers.difference(['hydro'])
 

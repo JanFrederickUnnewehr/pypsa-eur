@@ -280,15 +280,6 @@ def clustering_for_n_clusters(n, n_clusters, aggregate_carriers=None,
         raise AttributeError("potential_mode should be one of 'simple' or 'conservative', "
                              "but is '{}'".format(potential_mode))
 
-    # clustering = get_clustering_from_busmap(
-    #     n, busmap_for_n_clusters(n, n_clusters, solver_name, focus_weights, algorithm),
-    #     bus_strategies=dict(country=_make_consense("Bus", "country")),
-    #     aggregate_generators_weighted=False,
-    #     aggregate_generators_carriers=aggregate_carriers,
-    #     aggregate_one_ports=["Load", "StorageUnit"],
-    #     line_length_factor=line_length_factor,
-    #     scale_link_capital_costs=False)
-
     clustering = get_clustering_from_busmap(
         n, busmap_for_n_clusters(n, n_clusters, solver_name, focus_weights, algorithm),
         bus_strategies=dict(country=_make_consense("Bus", "country")),
@@ -333,7 +324,7 @@ def cluster_regions(busmaps, input=None, output=None):
 if __name__ == "__main__":
     if 'snakemake' not in globals():
         from _helpers import mock_snakemake
-        snakemake = mock_snakemake('cluster_network', network='elec_today', simpl='', clusters='70c')
+        snakemake = mock_snakemake('cluster_network', network='elec_today', simpl='', clusters='200m')
     configure_logging(snakemake)
 
     n = pypsa.Network(snakemake.input.network)

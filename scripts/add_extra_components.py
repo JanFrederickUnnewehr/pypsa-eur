@@ -179,8 +179,8 @@ def attach_hydrogen_pipelines(n, costs):
 if __name__ == "__main__":
     if 'snakemake' not in globals():
         from _helpers import mock_snakemake
-        snakemake = mock_snakemake('add_extra_components', network='elec',
-                                  simpl='', clusters=5)
+        snakemake = mock_snakemake('add_extra_components', network='elec_today',
+                                  simpl='', clusters='200m')
     configure_logging(snakemake)
 
     n = pypsa.Network(snakemake.input.network)

@@ -86,7 +86,10 @@ rule build_renewable_powerplants:
         base_network="networks/base.nc",
         installed_renewable_capacities_DE="data/installed_renewable_capacities/renewable_power_plants_DE.csv",
         installed_renewable_capacities_DE_offwind="data/installed_renewable_capacities/wind_offshore_DE.csv",
-        installed_renewable_capacities_DE_onwind="data/installed_renewable_capacities/wind_onshore_DE.csv"
+        installed_renewable_capacities_DE_onwind="data/installed_renewable_capacities/wind_onshore_DE.csv",
+        regions_offshore="resources/regions_offshore.geojson",
+        **{'profile_' + t: "resources/profile_" + t + ".nc"
+           for t in config['renewable']}
     output: "resources/renewable_powerplants.csv"
     log: "logs/build_renewable_powerplants.log"
     threads: 1

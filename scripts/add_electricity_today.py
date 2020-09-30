@@ -324,7 +324,7 @@ def attach_wind_and_solar(n, costs, re_cap_country, re_ppl):
             
             
             # filter ds to countries without renewbales
-            ds = ds.where(ds.bus.isin(n.buses.query("country in @countries").index))
+            ds = ds.where(ds.bus.isin(n.buses.query("country in @countries").index), drop=True)
             
             for country in countries:
                 
@@ -427,39 +427,57 @@ def attach_wind_and_solar_with_locations(n, costs, re_ppl):
 
             #add todays renewable capacities with locations to the network
             
-            #filter re_ppl 
+            #filter re_ppl to "tech"
             re_ppl_tech = re_ppl.query('carrier == @tech')
             
-            # agg. because dataframe is to large for merge function maybe for all techs
+            # agg. to bus, because dataframe is to large for merge function for all techs
             
             re_ppl_tech = re_ppl_tech.groupby(['bus'], as_index=False).agg({'p_nom': 'sum', 'country': 'first', 'carrier': 'first'})
             
-            #filter all busses in the network with renewbale powerplants           
+            #filter all busses in the network that has renewbale powerplants           
             busses_re_ppl = pd.DataFrame()           
             busses_re_ppl = re_ppl_tech.bus.unique()
 
             #CF for each bus in the network
-            busses_CF = ds['profile'].to_pandas().query('index in @busses_re_ppl')
-            #reset index for merge function
-            re_ppl_tech.reset_index(inplace=True)
-            re_ppl_CF = re_ppl_tech[['index','bus']]
-
-            re_ppl_CF = re_ppl_CF.merge(busses_CF, left_on='bus', right_on=busses_CF.index)
+            busses_CF = ds['profile'].transpose('time', 'bus').to_pandas()[busses_re_ppl]
+            #busses_CF = ds['profile'].transpose('time', 'bus').to_pandas().filter(items=busses_re_ppl)
+            #weight for each bus in the network
+            busses_weight = ds['weight'].to_pandas()[busses_re_ppl]
             
-            re_ppl_CF.set_index('index', inplace=True)
+            # busses_CF_1 = ds['profile'].to_pandas().query('index in @busses_re_ppl')
+            # #weight for each bus in the network
+            # #busses_weight = ds['weight'].to_pandas()[busses_re_ppl]
+            
+            # #reset index for merge function
+            # re_ppl_tech.reset_index(inplace=True)
+            # re_ppl_CF = re_ppl_tech[['bus']]
+
+            # re_ppl_CF = re_ppl_CF.merge(busses_CF, left_on='bus', right_on=busses_CF.index)
+            
+            # re_ppl_CF.set_index('bus', inplace=True)
+            
+            
+            # re_ppl_weight = re_ppl_tech[['bus']]
+
+            # re_ppl_weight = re_ppl_weight.merge(busses_weight, left_on='bus', right_on=busses_weight.index)
+            
+            # re_ppl_weight.set_index('bus', inplace=True)
+            
+            re_ppl_tech.set_index('bus', inplace=True)
 
             # add renewable capacities to the network
             
             logger.info('Adding {} generators with locations and capacities of\n{}'
                     .format(tech, re_ppl_tech.p_nom.sum()))
     
-            n.madd("Generator", re_ppl_tech.index, ' ' + tech,
-                       bus=re_ppl_tech.bus,
+            n.madd("Generator", re_ppl_tech.index, ' ' + '_prof' + tech,
+                       bus=re_ppl_tech.index,
                        carrier=tech,
                        p_nom=re_ppl_tech.p_nom,
+                       weight=busses_weight.transpose(),
                        marginal_cost=costs.at[tech, 'marginal_cost']-1000,
                        efficiency=costs.at[tech, 'efficiency'],
-                       p_max_pu=re_ppl_CF.transpose())            
+                       p_max_pu=busses_CF)            
 
 
 

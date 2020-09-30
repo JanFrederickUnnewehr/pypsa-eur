@@ -245,9 +245,14 @@ if __name__ == "__main__":
         re_ppl.loc[re_ppl_i, 'bus'] = substation_i.append(pd.Index([np.nan]))[tree_i]
 
     # find bus for offshore
+    import geokit as gk
+    
+    regions = gk.vector.extractFeatures(snakemake.input.regions_offshore, onlyAttr=True)
+    regions.set_index('name', inplace=True)
 
     for c in countries:
-        substation_i = n.buses.query('substation_off and country == @c').index
+        #substation_i = n.buses.query('substation_off and country == @c').index
+        substation_i = regions.query('country == @c').index
         kdtree = KDTree(n.buses.loc[substation_i, ['x','y']].values)
         re_ppl_i = re_ppl.query('Country == @c and Carrier in ["offwind"]').index
 

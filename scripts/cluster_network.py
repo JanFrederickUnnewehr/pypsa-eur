@@ -340,7 +340,8 @@ if __name__ == "__main__":
     if snakemake.wildcards.clusters.endswith('m'):
         n_clusters = int(snakemake.wildcards.clusters[:-1])
         #aggregate_carriers = pd.Index(n.generators.carrier.unique()).difference(renewable_carriers)
-        aggregate_carriers = renewable_carriers 
+        #aggregate_carriers = renewable_carriers
+        aggregate_carriers = snakemake.config['clustering']['carriers']
     # elif snakemake.wildcards.clusters.endswith('c'):
     #     n_clusters = int(snakemake.wildcards.clusters[:-1])
     #     aggregate_carriers = renewable_carriers        

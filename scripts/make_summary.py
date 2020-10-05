@@ -477,9 +477,9 @@ def to_csv(dfs):
 if __name__ == "__main__":
     if 'snakemake' not in globals():
         from _helpers import mock_snakemake
-        snakemake = mock_snakemake('make_summary', network='elec', simpl='',
-                           clusters='5', ll='copt', opts='Co2L-24H', country='all')
-        network_dir = os.path.join('..', 'results', 'networks')
+        snakemake = mock_snakemake('make_summary', network='elec_today', simpl='',
+                           clusters='180m', ll='v1.0', opts='1H', country='DE')
+        network_dir = os.path.join('..', 'results', 'networks_today')
     else:
         network_dir = os.path.join('results', 'networks')
     configure_logging(snakemake)

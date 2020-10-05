@@ -388,7 +388,7 @@ rule solve_operations_network:
 
 rule plot_network:
     input:
-        network="results/networks/{network}_s{simpl}_{clusters}_ec_l{ll}_{opts}.nc",
+        network="results/networks_today/{network}_s{simpl}_{clusters}_ec_l{ll}_{opts}.nc",
         tech_costs=COSTS
     output:
         only_map="results/plots/{network}_s{simpl}_{clusters}_ec_l{ll}_{opts}_{attr}.{ext}",

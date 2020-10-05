@@ -255,8 +255,9 @@ if __name__ == "__main__":
     if 'snakemake' not in globals():
         from _helpers import mock_snakemake
         snakemake = mock_snakemake('plot_network', network='elec_today', simpl='',
-                                  clusters='210m', ll='v1.0', opts='24H',
+                                  clusters='180m', ll='v1.0', opts='1H',
                                   attr='p_nom', ext="pdf")
+        
     configure_logging(snakemake)
 
     set_plot_style()

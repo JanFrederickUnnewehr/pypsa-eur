@@ -364,7 +364,7 @@ def attach_wind_and_solar(n, costs, re_cap_country, re_ppl):
                    carrier=tech,
                    p_nom=re_cap_bus[0],
                    weight=ds['weight'].to_pandas(),
-                   marginal_cost=costs.at[tech, 'marginal_cost']-1000,
+                   marginal_cost=costs.at[tech, 'marginal_cost'],
                    efficiency=costs.at[tech, 'efficiency'],
                    p_max_pu=ds['profile'].transpose('time', 'bus').to_pandas())
             
@@ -475,7 +475,7 @@ def attach_wind_and_solar_with_locations(n, costs, re_ppl):
                        carrier=tech,
                        p_nom=re_ppl_tech.p_nom,
                        weight=busses_weight.transpose(),
-                       marginal_cost=costs.at[tech, 'marginal_cost']-1000,
+                       marginal_cost=costs.at[tech, 'marginal_cost'],
                        efficiency=costs.at[tech, 'efficiency'],
                        p_max_pu=busses_CF)            
 
@@ -756,10 +756,14 @@ if __name__ == "__main__":
     #conventianal ppl and available profiles also hydro    
     ppl_index = attach_conventional_generator_profiles(n, ppl)
     
+    
+    # filter german coal and nuclear power plants without profiles
+    ppl_index.extend(ppl.query("country == 'DE' & (carrier == 'coal' or carrier == 'nuclear')").index.to_list())
+    
     #filter ppl without profiles
 
     ppl = ppl.query('index not in @ppl_index')
-
+    
     #attach ppl without profiles
     attach_conventional_generators(n, costs, ppl)
   

@@ -88,6 +88,8 @@ def add_custom_powerplants(ppl):
         return ppl
     add_ppls = pd.read_csv(snakemake.input.custom_powerplants, index_col=0,
                            dtype={'bus': 'str'})
+    add_ppls.projectID = add_ppls.projectID.apply(eval)
+    add_ppls.YearComissioned = pd.to_datetime(add_ppls.YearComissioned).dt.year
     if isinstance(custom_ppl_query, str):
         add_ppls.query(custom_ppl_query, inplace=True)
     return ppl.append(add_ppls, sort=False, ignore_index=True, verify_integrity=True)
@@ -103,7 +105,7 @@ if __name__ == "__main__":
     n = pypsa.Network(snakemake.input.base_network)
     countries = n.buses.country.unique()
 
-    ppl = (pm.powerplants(from_url=False, update=True)
+    ppl = (pm.powerplants(from_url=False, update=False)
             .powerplant.fill_missing_decommyears()
             .powerplant.convert_country_to_alpha2()
             .query('Fueltype not in ["Solar", "Wind"] and Country in @countries')

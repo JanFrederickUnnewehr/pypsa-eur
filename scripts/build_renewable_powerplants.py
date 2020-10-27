@@ -218,19 +218,48 @@ if __name__ == "__main__":
     re_ppl_onwind['Carrier'] = 'onwind'
     re_ppl_onwind = re_ppl_onwind.rename(columns={'Capacity': 'capacity'})
 
-    
-    
-    re_ppl_offwind = pd.read_csv(snakemake.input.installed_renewable_capacities_DE_offwind, usecols=['Capacity','YearCommissioned','lat', 'lon'], parse_dates=['YearCommissioned'])
 
-    re_ppl_offwind['Country'] = 'DE'
-    re_ppl_offwind['Carrier'] = 'offwind'
-    re_ppl_offwind = re_ppl_offwind.rename(columns={'Capacity': 'capacity'})
-    re_ppl_offwind = re_ppl_offwind[re_ppl_offwind.YearCommissioned < n.snapshots[-1]]
-    #convert to MW
-    re_ppl_offwind.capacity = re_ppl_offwind.capacity / 1000
-    
-    re_ppl = pd.concat([re_ppl_solar, re_ppl_onwind, re_ppl_offwind], ignore_index=True)
 
+    offwind_DE = pd.read_html('https://en.wikipedia.org/wiki/List_of_offshore_wind_farms_in_Germany', header=0, match="Riffgat")[0]
+
+    offwind_DE = pd.read_html('https://de.wikipedia.org/wiki/Liste_der_deutschen_Offshore-Windparks', header=0, match="Riffgat")[0]
+    offwind_DE = offwind_DE[~offwind_DE['Leistung(MW)'].str.contains('Nordsee')]
+    offwind_DE = offwind_DE[~offwind_DE['Leistung(MW)'].str.contains('Ostsee')]
+    offwind_DE = offwind_DE[offwind_DE['Status'].str.contains('in Betrieb')]
+    offwind_DE = offwind_DE.astype({'Leistung(MW)': 'int32', 'Inbetrieb­nahme(Jahr)': 'int32', 'AnzahlWKAs' : 'int32'})
+    
+
+    def extract_coordinates(string):
+        characters = ['°',',','″','′']
+        for character in characters:
+            string = string.replace(character,'')
+        string = string.replace(' ','\xa0')
+        string=string.split('\xa0')
+        e = string
+        sign = {'N':1,'S':-1,'O':1,'W':-1}
+        lat = (float(e[0]) + (float(e[1]) + float(e[2])/60.)/60.)*sign[e[3]]
+        lon = (float(e[4]) + (float(e[5]) + float(e[6])/60.)/60.)*sign[e[3]]
+        return lon, lat
+
+    offwind_DE['Koordinaten'] = offwind_DE['Koordinaten'].apply(extract_coordinates)
+    offwind_DE[['lon', 'lat']] = pd.DataFrame(offwind_DE['Koordinaten'].tolist(), index=offwind_DE.index) 
+    offwind_DE['Country'] = 'DE'
+    offwind_DE['Carrier'] = 'offwind'
+    offwind_DE.rename(columns={'Leistung(MW)': 'capacity'}, inplace=True)
+    offwind_DE = offwind_DE[offwind_DE['Inbetrieb­nahme(Jahr)'] < (n.snapshots[-1].year+1)]
+    
+    # re_ppl_offwind = pd.read_csv(snakemake.input.installed_renewable_capacities_DE_offwind, usecols=['Capacity','YearCommissioned','lat', 'lon'], parse_dates=['YearCommissioned'])
+
+    # re_ppl_offwind['Country'] = 'DE'
+    # re_ppl_offwind['Carrier'] = 'offwind'
+    # re_ppl_offwind = re_ppl_offwind.rename(columns={'Capacity': 'capacity'})
+    # re_ppl_offwind = re_ppl_offwind[re_ppl_offwind.YearCommissioned < n.snapshots[-1]]
+    # #convert to MW
+    # re_ppl_offwind.capacity = re_ppl_offwind.capacity / 1000
+    
+    # re_ppl = pd.concat([re_ppl_solar, re_ppl_onwind, re_ppl_offwind], ignore_index=True)
+
+    re_ppl = pd.concat([re_ppl_solar, re_ppl_onwind, offwind_DE], ignore_index=True)
 
     cntries_without_re_ppl = [c for c in countries if c not in re_ppl.Country.unique()]
     

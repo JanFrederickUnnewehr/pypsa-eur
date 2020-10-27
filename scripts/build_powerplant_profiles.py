@@ -42,8 +42,10 @@ import progressbar
 def load_powerplants(ppl_fn=None):
     if ppl_fn is None:
         ppl_fn = snakemake.input.powerplants
+        ppl = pd.read_csv(ppl_fn, index_col=0, dtype={'bus': 'str'})
+        ppl.query("Fueltype not in ['Bioenergy']", inplace=True)
 
-    return (pd.read_csv(ppl_fn, index_col=0, dtype={'bus': 'str'}).pipe(pm.utils.projectID_to_dict))
+    return (ppl.pipe(pm.utils.projectID_to_dict))
 
 def powerplant_generation (pp_id, generation_data, ppl):       
     

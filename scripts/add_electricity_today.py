@@ -504,6 +504,8 @@ def attach_conventional_generator_profiles(n, ppl):
     carriers = snakemake.config['electricity']['conventional_carriers']
     _add_missing_carriers_from_costs(n, costs, carriers)
     
+    ppl = ppl.join(costs, on='carrier')
+    
     profile_pp_data = xr.open_dataset(snakemake.input.profile_pp)
 
     profile_pp = profile_pp_data['profile'].to_pandas()
@@ -512,9 +514,7 @@ def attach_conventional_generator_profiles(n, ppl):
     
     #pp_cap = pp_cap.rename(index=lambda s: 'C_p' + str(s))
 
-    ppl = (ppl.join(costs, on='carrier'))#.rename(index=lambda s: 'C_p' + str(s)))
-    
-    ppl.carrier.loc[266] = 'CCGT' # small correction
+    #ppl = (ppl.join(costs, on='carrier'))#.rename(index=lambda s: 'C_p' + str(s)))
 
     profile_pp = profile_pp.transpose()
     
@@ -535,7 +535,7 @@ def attach_conventional_generator_profiles(n, ppl):
            bus=ppl.bus,
            p_nom=ppl.p_nom,
            efficiency=1,
-           marginal_cost=0,
+           marginal_cost=ppl.marginal_cost,
            capital_cost=0,
            p_max_pu=profile_pp.transpose(),
            p_min_pu=(profile_pp.transpose()-0.000001))
@@ -746,6 +746,8 @@ if __name__ == "__main__":
     #loading powerplant data and cost data
     costs = load_costs(Nyears)
     ppl = load_powerplants()
+    #muss noch reparier werten, ist ein kraftwerk, mit dem falschen carrier
+    ppl.loc[266, 'carrier'] = 'CCGT' # small correction
     re_ppl = load_renewable_powerplants()
     
     #attach components to pypsa network
@@ -754,15 +756,15 @@ if __name__ == "__main__":
     attach_load(n)
     
     #conventianal ppl and available profiles also hydro    
-    ppl_index = attach_conventional_generator_profiles(n, ppl)
+    ppl_index_prof = attach_conventional_generator_profiles(n, ppl)
     
     
     # filter german coal and nuclear power plants without profiles
-    ppl_index.extend(ppl.query("country == 'DE' & (carrier == 'coal' or carrier == 'nuclear')").index.to_list())
+    ppl_index_prof.extend(ppl.query("country == 'DE' & (carrier == 'coal' or carrier == 'nuclear')").index.to_list())
     
     #filter ppl without profiles
 
-    ppl = ppl.query('index not in @ppl_index')
+    ppl = ppl.query('index not in @ppl_index_prof')
     
     #attach ppl without profiles
     attach_conventional_generators(n, costs, ppl)

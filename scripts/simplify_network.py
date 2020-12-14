@@ -307,7 +307,7 @@ def simplify_links(n):
 def remove_stubs(n):
     logger.info("Removing stubs")
 
-    busmap = busmap_by_stubs(n, ['carrier','country'])
+    busmap = busmap_by_stubs(n) #, ['carrier','country'])
 
     connection_costs_to_bus = _compute_connection_costs_to_bus(n, busmap)
 

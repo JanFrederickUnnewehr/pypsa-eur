@@ -522,20 +522,25 @@ def attach_conventional_generator_profiles(n, ppl):
     
     ppl_index = profile_pp.index.tolist()
     
-    ppl = ppl.query('index in @ppl_index')
+    ppl_profiles = ppl.query('index in @ppl_index').copy()
     
-    ppl.p_nom.update(other=pp_cap.capacity)
+    ppl_profiles.p_nom.update(other=pp_cap.capacity)
+    
+    #def hydro carriers
+    # Reservoir hydro bleibr hydro in carriers
+    ppl_profiles.loc[ppl_profiles.technology == "Run-Of-River", "carrier"] = 'ror'
+    ppl_profiles.loc[ppl_profiles.technology == "Pumped Storage", "carrier"] = 'PHS'
 
     logger.info('Adding {} generators and their profiles with capacities\n{}'
-                .format(len(ppl), ppl.groupby('carrier').p_nom.sum()))
+                .format(len(ppl_profiles), ppl_profiles.groupby('carrier').p_nom.sum()))
     
-    n.madd("Generator", ppl.index,
+    n.madd("Generator", ppl_profiles.index,
            suffix='_C_Gen_prof',
-           carrier=ppl.carrier,
-           bus=ppl.bus,
-           p_nom=ppl.p_nom,
-           efficiency=1,
-           marginal_cost=ppl.marginal_cost,
+           carrier=ppl_profiles.carrier,
+           bus=ppl_profiles.bus,
+           p_nom=ppl_profiles.p_nom,
+           efficiency=ppl_profiles.efficiency,
+           marginal_cost=ppl_profiles.marginal_cost,
            capital_cost=0,
            p_max_pu=profile_pp.transpose(),
            p_min_pu=(profile_pp.transpose()-0.000001))
@@ -571,12 +576,22 @@ def attach_hydro(n, costs, ppl):
                        
             # inflow data from era data for each country, is distributed over all power plant by there p_nom values
             # inflow in MW oder auch MW/h kommt darauf an wie inflow erzeugt wurde
-            inflow_t = (inflow.sel(countries=inflow_countries)
-                        .rename({'countries': 'name'})
-                        .assign_coords(name=inflow_idx)
-                        .transpose('time', 'name')
-                        .to_pandas()
-                        .multiply(dist_key, axis=1))
+            hydro_gen_t = n.generators_t.p_max_pu[n.generators[(n.generators.carrier == 'ror') | (n.generators.carrier == 'hydro')].index] * n.generators[(n.generators.carrier == 'ror') | (n.generators.carrier == 'hydro')].p_nom
+            country_gen_dic = n.generators[(n.generators.carrier == 'ror') | (n.generators.carrier == 'hydro')].bus.map(n.buses.country).rename("country")
+            hydro_gen_t_country = hydro_gen_t.groupby(country_gen_dic, axis=1).sum()
+            
+            inflow_t_country = inflow.sel(countries=inflow_countries).rename({'countries': 'name'}).transpose('time', 'name').to_pandas()
+            
+            inflow_t_country_new = inflow_t_country.sub(hydro_gen_t_country, fill_value=0)
+            
+            inflow_t = inflow_t_country.transpose().set_index(inflow_idx).transpose().multiply(dist_key,axis=1)
+            
+            # inflow_t = (inflow.sel(countries=inflow_countries)
+            #             .rename({'countries': 'name'})
+            #             .assign_coords(name=inflow_idx)
+            #             .transpose('time', 'name')
+            #             .to_pandas()
+            #             .multiply(dist_key, axis=1))
             
             # verfügbare ror einsepisung wird über länder inflow erzeugt
     if 'ror' in carriers and not ror.empty:
@@ -759,7 +774,7 @@ if __name__ == "__main__":
     ppl_index_prof = attach_conventional_generator_profiles(n, ppl)
     
     
-    # filter german coal and nuclear power plants without profiles
+    #filter german coal and nuclear power plants without profiles
     ppl_index_prof.extend(ppl.query("country == 'DE' & (carrier == 'coal' or carrier == 'nuclear')").index.to_list())
     
     #filter ppl without profiles
